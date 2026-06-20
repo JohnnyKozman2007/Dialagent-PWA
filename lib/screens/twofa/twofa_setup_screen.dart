@@ -162,17 +162,15 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
             
               if (secretKey != null)
                 Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  // 🔥 FORCE WHITE BACKGROUND so QR code is always scannable
+                  color: Colors.white,
                   padding: const EdgeInsets.all(16),
                   child: QrImageView(
                     data: otpUri,
                     version: QrVersions.auto,
                     size: 200,
                     eyeStyle: const QrEyeStyle(
-                      color: Colors.green,
+                      color: Colors.black,
                       eyeShape: QrEyeShape.square,
                     ),
                     dataModuleStyle: const QrDataModuleStyle(
