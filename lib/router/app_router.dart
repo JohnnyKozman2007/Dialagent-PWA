@@ -20,7 +20,8 @@ final router = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) async {
     final user = FirebaseAuth.instance.currentUser;
-
+  
+    // --- NOT LOGGED IN ---
     if (user == null) {
       final allowedPaths = ['/login', '/signup', '/recovery'];
       if (!allowedPaths.contains(state.uri.path)) {
@@ -28,34 +29,46 @@ final router = GoRouter(
       }
       return null;
     }
-
+  
+    // --- LOGGED IN ---
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get()
           .timeout(const Duration(seconds: 3));
-
+  
       final has2FA = doc.data()?['twoFAEnabled'] ?? false;
       final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
-
+  
+      // 🔥 CRITICAL: 2FA is ALWAYS checked FIRST for EVERY route
+      // If 2FA is not enabled, redirect to /twofa (EXCEPT if already on /twofa)
       if (!has2FA && state.uri.path != '/twofa') {
         return '/twofa';
       }
-
+  
+      // If 2FA is done, check onboarding
       if (has2FA && !hasOnboarding && state.uri.path != '/onboarding') {
         return '/onboarding';
       }
-
+  
+      // If all done, allow access
       if (has2FA && hasOnboarding) {
+        // If on login page or root, go to dashboard
         if (state.uri.path == '/login' || state.uri.path == '/') {
           return '/dashboard';
         }
+        // Allow other routes (dashboard, settings, shifts, etc.)
         return null;
       }
-
+  
+      // Fallback: if something is wrong, redirect to onboarding
+      if (state.uri.path == '/login' || state.uri.path == '/') {
+        return '/onboarding';
+      }
       return null;
     } catch (e) {
+      // If Firestore fails, redirect to onboarding as safe fallback
       if (state.uri.path == '/login' || state.uri.path == '/') {
         return '/onboarding';
       }
