@@ -2,7 +2,5 @@
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "buildCommand": "bash build.sh",
   "outputDirectory": "build/web",
-  "env": {
-    "FLUTTER_ROOT": "/vercel/path/to/flutter"
-  }
+  "installCommand": "echo 'Install handled in build script'"
 }
