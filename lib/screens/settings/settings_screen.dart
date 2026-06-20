@@ -64,7 +64,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               _buildSettingsTile(
                 icon: Icons.lock,
                 title: 'Change Password',
-                subtitle: 'Update your password (requires 2FA)',
+                subtitle: 'Update your password (requires 2FA)',  // <-- This text was already there, but confirm it
                 onTap: () => _showChangePasswordDialog(context),
                 color: Colors.green,
               ),
