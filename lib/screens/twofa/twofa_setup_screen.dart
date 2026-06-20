@@ -159,6 +159,7 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
               ),
               const SizedBox(height: 30),
 
+            
               if (secretKey != null)
                 Container(
                   decoration: BoxDecoration(
