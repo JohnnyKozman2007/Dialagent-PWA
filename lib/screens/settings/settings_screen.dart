@@ -339,29 +339,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   
-  void _showChangePasswordDialog(BuildContext context) {
-    final currentPasswordController = TextEditingController();
-    final newPasswordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-    final twoFAController = TextEditingController();
-    bool step2 = false;
-  
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+void _showChangePasswordDialog(BuildContext context) {
+  final currentPasswordController = TextEditingController();
+  final newPasswordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+
+  // State variables
+  String? errorMessage;
+  bool isLoading = false;
+  bool step2 = false;
+  String? twoFACode;
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        return AlertDialog(
           title: Text(step2 ? '🔐 2FA Verification' : 'Change Password'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (!step2) ...[
-                // Step 1: Enter current password and new password
+                // --- STEP 1: Enter passwords ---
                 TextField(
                   controller: currentPasswordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Current Password',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    errorText: errorMessage,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -384,11 +391,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'You will need to verify with 2FA on the next step.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  '✅ Your current password will be verified before 2FA',
+                  style: TextStyle(fontSize: 12, color: Colors.green),
                 ),
               ] else ...[
-                // Step 2: Enter 2FA code
+                // --- STEP 2: Enter 2FA code ---
                 const Icon(Icons.security, size: 48, color: Colors.green),
                 const SizedBox(height: 16),
                 const Text(
@@ -398,13 +405,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 TextField(
-                  controller: twoFAController,
                   keyboardType: TextInputType.number,
                   maxLength: 6,
-                  decoration: const InputDecoration(
+                  onChanged: (value) => setState(() => twoFACode = value.trim()),
+                  decoration: InputDecoration(
                     labelText: '6-digit 2FA Code',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
                     counterText: '',
+                    errorText: errorMessage,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -413,102 +421,170 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                // Reset everything on close
+                currentPasswordController.dispose();
+                newPasswordController.dispose();
+                confirmPasswordController.dispose();
+                Navigator.pop(context);
+              },
               child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () async {
                 if (!step2) {
-                  // Step 1: Validate passwords
-                  if (newPasswordController.text != confirmPasswordController.text) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Passwords do not match')),
-                    );
-                    return;
-                  }
-                  if (newPasswordController.text.length < 6) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Password must be at least 6 characters')),
-                    );
-                    return;
-                  }
-                  // Proceed to 2FA step
-                  setState(() => step2 = true);
-                } else {
-                  // Step 2: Verify 2FA
-                  setState(() => _isLoading = true);
-  
+                  // --- STEP 1: Validate passwords and re-authenticate ---
+                  setState(() {
+                    errorMessage = null;
+                    isLoading = true;
+                  });
+
                   try {
+                    // Validate password fields
+                    if (newPasswordController.text != confirmPasswordController.text) {
+                      setState(() {
+                        errorMessage = 'Passwords do not match';
+                        isLoading = false;
+                      });
+                      return;
+                    }
+                    if (newPasswordController.text.length < 6) {
+                      setState(() {
+                        errorMessage = 'Password must be at least 6 characters';
+                        isLoading = false;
+                      });
+                      return;
+                    }
+
                     final user = FirebaseAuth.instance.currentUser;
                     if (user == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('User not logged in')),
-                      );
+                      setState(() {
+                        errorMessage = 'User not logged in';
+                        isLoading = false;
+                      });
                       return;
                     }
-  
-                    // Get the user's 2FA secret from Firestore
-                    final doc = await FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(user.uid)
-                        .get();
-  
-                    final secret = doc.data()?['twoFASecret'];
-                    if (secret == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('2FA not set up. Please contact admin.')),
-                      );
-                      return;
-                    }
-  
-                    // 🔥 VERIFY 2FA CODE
-                    final isValid = TOTPUtil.verifyCode(
-                      secretKey: secret,
-                      totpCode: twoFAController.text.trim(),
-                    );
-  
-                    if (!isValid) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('❌ Invalid 2FA code. Please try again.')),
-                      );
-                      return;
-                    }
-  
-                    // ✅ 2FA Verified — Now update password
-                    // Re-authenticate user
+
+                    // 🔥 Step 1A: Verify the OLD password FIRST
                     final credential = EmailAuthProvider.credential(
                       email: user.email!,
                       password: currentPasswordController.text,
                     );
                     await user.reauthenticateWithCredential(credential);
-  
-                    // Update password
-                    await user.updatePassword(newPasswordController.text);
-  
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('✅ Password updated successfully!')),
-                    );
-                    Navigator.pop(context);
+
+                    // ✅ Old password is correct! Move to Step 2 (2FA)
+                    setState(() {
+                      isLoading = false;
+                      step2 = true;
+                      errorMessage = null;
+                      twoFACode = null; // Reset 2FA input
+                    });
+
                   } on FirebaseAuthException catch (e) {
-                    String message = 'Failed to update password';
+                    String message = 'Re-authentication failed';
                     if (e.code == 'wrong-password') {
-                      message = 'Current password is incorrect';
-                    } else if (e.code == 'requires-recent-login') {
-                      message = 'Please log out and log in again';
+                      message = '❌ Current password is incorrect';
+                    } else if (e.code == 'user-not-found') {
+                      message = 'User not found';
+                    } else if (e.code == 'too-many-requests') {
+                      message = 'Too many failed attempts. Please try again later.';
                     }
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(message)),
-                    );
+                    setState(() {
+                      errorMessage = message;
+                      isLoading = false;
+                    });
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e')),
-                    );
+                    setState(() {
+                      errorMessage = 'Error: $e';
+                      isLoading = false;
+                    });
                   }
-  
-                  setState(() => _isLoading = false);
+                  return;
+                }
+
+                // --- STEP 2: Verify 2FA and update password ---
+                setState(() {
+                  errorMessage = null;
+                  isLoading = true;
+                });
+
+                try {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user == null) {
+                    setState(() {
+                      errorMessage = 'User not logged in';
+                      isLoading = false;
+                    });
+                    return;
+                  }
+
+                  // Fetch 2FA secret from Firestore
+                  final doc = await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .get();
+
+                  final secret = doc.data()?['twoFASecret'];
+                  if (secret == null) {
+                    setState(() {
+                      errorMessage = '2FA not set up. Please contact admin.';
+                      isLoading = false;
+                    });
+                    return;
+                  }
+
+                  // 🔥 Verify 2FA code
+                  final isValid = TOTPUtil.verifyCode(
+                    secretKey: secret,
+                    totpCode: twoFACode ?? '',
+                  );
+
+                  if (!isValid) {
+                    setState(() {
+                      errorMessage = '❌ Invalid 2FA code. Please try again.';
+                      isLoading = false;
+                      twoFACode = null; // Clear the input so user can retry
+                    });
+                    return;
+                  }
+
+                  // ✅ 2FA Verified — Update the password
+                  // Note: We already re-authenticated in Step 1, so we can just update
+                  await user.updatePassword(newPasswordController.text);
+
+                  // Success!
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('✅ Password updated successfully!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+
+                  // Clean up and close
+                  currentPasswordController.dispose();
+                  newPasswordController.dispose();
+                  confirmPasswordController.dispose();
+                  Navigator.pop(context);
+
+                } on FirebaseAuthException catch (e) {
+                  String message = 'Failed to update password';
+                  if (e.code == 'requires-recent-login') {
+                    message = 'Please log out and log in again';
+                  } else if (e.code == 'weak-password') {
+                    message = 'New password is too weak';
+                  }
+                  setState(() {
+                    errorMessage = message;
+                    isLoading = false;
+                  });
+                } catch (e) {
+                  setState(() {
+                    errorMessage = 'Error: $e';
+                    isLoading = false;
+                  });
                 }
               },
-              child: _isLoading
+              child: isLoading
                   ? const SizedBox(
                       height: 20,
                       width: 20,
@@ -517,12 +593,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   : Text(step2 ? 'Verify & Update' : 'Next ➜'),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-
+        );
+      },
+    ),
+  );
+}
   
   void _showCuisinePicker(BuildContext context, UserModel user) {
     final List<String> cuisines = [
