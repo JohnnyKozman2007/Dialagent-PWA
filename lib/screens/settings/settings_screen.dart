@@ -338,22 +338,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }).toList();
   }
 
+  
   void _showChangePasswordDialog(BuildContext context) {
     final currentPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
     final twoFAController = TextEditingController();
     bool step2 = false;
-
+  
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text(step2 ? '2FA Verification' : 'Change Password'),
+          title: Text(step2 ? '🔐 2FA Verification' : 'Change Password'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (!step2) ...[
+                // Step 1: Enter current password and new password
                 TextField(
                   controller: currentPasswordController,
                   obscureText: true,
@@ -380,10 +382,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     border: OutlineInputBorder(),
                   ),
                 ),
+                const SizedBox(height: 8),
+                const Text(
+                  'You will need to verify with 2FA on the next step.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ] else ...[
+                // Step 2: Enter 2FA code
+                const Icon(Icons.security, size: 48, color: Colors.green),
+                const SizedBox(height: 16),
                 const Text(
                   'Enter your 2FA code to verify your identity',
                   textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -408,6 +419,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ElevatedButton(
               onPressed: () async {
                 if (!step2) {
+                  // Step 1: Validate passwords
                   if (newPasswordController.text != confirmPasswordController.text) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Passwords do not match')),
@@ -420,19 +432,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     );
                     return;
                   }
+                  // Proceed to 2FA step
                   setState(() => step2 = true);
                 } else {
+                  // Step 2: Verify 2FA
                   setState(() => _isLoading = true);
-
+  
                   try {
                     final user = FirebaseAuth.instance.currentUser;
-                    if (user == null) return;
-
+                    if (user == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('User not logged in')),
+                      );
+                      return;
+                    }
+  
+                    // Get the user's 2FA secret from Firestore
                     final doc = await FirebaseFirestore.instance
                         .collection('users')
                         .doc(user.uid)
                         .get();
-
+  
                     final secret = doc.data()?['twoFASecret'];
                     if (secret == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -440,28 +460,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       );
                       return;
                     }
-
+  
+                    // 🔥 VERIFY 2FA CODE
                     final isValid = TOTPUtil.verifyCode(
                       secretKey: secret,
                       totpCode: twoFAController.text.trim(),
                     );
-
+  
                     if (!isValid) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Invalid 2FA code')),
+                        const SnackBar(content: Text('❌ Invalid 2FA code. Please try again.')),
                       );
                       return;
                     }
-
+  
+                    // ✅ 2FA Verified — Now update password
+                    // Re-authenticate user
                     final credential = EmailAuthProvider.credential(
                       email: user.email!,
                       password: currentPasswordController.text,
                     );
                     await user.reauthenticateWithCredential(credential);
+  
+                    // Update password
                     await user.updatePassword(newPasswordController.text);
-
+  
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Password updated successfully!')),
+                      const SnackBar(content: Text('✅ Password updated successfully!')),
                     );
                     Navigator.pop(context);
                   } on FirebaseAuthException catch (e) {
@@ -479,7 +504,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       SnackBar(content: Text('Error: $e')),
                     );
                   }
-
+  
                   setState(() => _isLoading = false);
                 }
               },
@@ -489,7 +514,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(step2 ? 'Verify & Update' : 'Next'),
+                  : Text(step2 ? 'Verify & Update' : 'Next ➜'),
             ),
           ],
         ),
@@ -497,6 +522,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+
+  
   void _showCuisinePicker(BuildContext context, UserModel user) {
     final List<String> cuisines = [
       'Italian', 'French', 'Chinese', 'Japanese', 'Mexican',
