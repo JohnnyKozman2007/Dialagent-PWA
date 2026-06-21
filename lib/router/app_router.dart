@@ -48,6 +48,7 @@ final router = GoRouter(
 
       // 2FA enabled but trying to access dashboard without verification
       if (has2FA && state.uri.path == '/dashboard') {
+        // 🔥 Check session storage to see if 2FA was verified this session
         if (!SessionStorage.isTwoFAVerified()) {
           return '/verify-2fa';
         }
