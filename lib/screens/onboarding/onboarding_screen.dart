@@ -13,20 +13,20 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
-  
+
   final restaurantNameController = TextEditingController();
   final phoneController = TextEditingController();
   final addressController = TextEditingController();
-  
+
   String? selectedRole;
   String? selectedCuisine;
   int tableCount = 10;
-  
+
   bool isLoading = false;
-  
+
   final List<String> roles = ['Owner', 'Manager', 'Staff'];
   final List<String> cuisines = [
-    'Italian', 'French', 'Chinese', 'Japanese', 'Mexican', 
+    'Italian', 'French', 'Chinese', 'Japanese', 'Mexican',
     'Indian', 'Thai', 'Mediterranean', 'American', 'Fusion'
   ];
 
@@ -73,7 +73,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) throw Exception('Not logged in');
+      if (user == null) {
+        throw Exception('Not logged in');
+      }
+
+      // 🔥 Generate restaurantId from the user's UID
+      final restaurantId = user.uid;
 
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
         {
@@ -85,6 +90,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'tableCount': tableCount,
           'onboardingCompleted': true,
           'email': user.email,
+          'restaurantId': restaurantId, // 🔥 ADDED
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -153,6 +159,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               const SizedBox(height: 32),
 
+              // Restaurant Name
               const Text(
                 'Restaurant Name *',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -177,6 +184,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               const SizedBox(height: 20),
 
+              // Phone
               const Text(
                 'Phone Number *',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -202,6 +210,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               const SizedBox(height: 20),
 
+              // Address
               const Text(
                 'Restaurant Address *',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -227,6 +236,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               const SizedBox(height: 20),
 
+              // Role
               const Text(
                 'Your Role *',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -253,10 +263,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         child: Row(
                           children: [
                             Icon(
-                              role == 'Owner' 
-                                  ? Icons.admin_panel_settings 
-                                  : role == 'Manager' 
-                                      ? Icons.people 
+                              role == 'Owner'
+                                  ? Icons.admin_panel_settings
+                                  : role == 'Manager'
+                                      ? Icons.people
                                       : Icons.person,
                               color: Colors.green,
                             ),
@@ -285,6 +295,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               const SizedBox(height: 20),
 
+              // Cuisine
               const Text(
                 'Cuisine Type *',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -323,6 +334,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               const SizedBox(height: 20),
 
+              // Table Count
               const Text(
                 'Number of Tables *',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -369,6 +381,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               const SizedBox(height: 40),
 
+              // Submit
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -390,7 +403,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       ),
               ),
               const SizedBox(height: 16),
-              
+
               if (_formKey.currentState?.validate() == false) ...[
                 Container(
                   padding: const EdgeInsets.all(12),
