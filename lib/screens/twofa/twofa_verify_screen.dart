@@ -7,9 +7,6 @@ import '../../utils/totp_util.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/session_storage.dart';
 
-
- 
-
 class TwoFAVerifyScreen extends ConsumerStatefulWidget {
   final String email;
 
@@ -53,7 +50,6 @@ class _TwoFAVerifyScreenState extends ConsumerState<TwoFAVerifyScreen> {
 
       final secret = doc.data()?['twoFASecret'];
       if (secret == null) {
-        // If no secret, something is wrong — redirect to 2FA setup
         context.go('/twofa');
         return;
       }
@@ -76,7 +72,6 @@ class _TwoFAVerifyScreenState extends ConsumerState<TwoFAVerifyScreen> {
       ref.read(twoFAVerifiedProvider.notifier).state = true;
       SessionStorage.setTwoFAVerified(true);
 
-      // Navigate to onboarding or dashboard
       final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
       if (!hasOnboarding) {
         context.go('/onboarding');
@@ -93,7 +88,6 @@ class _TwoFAVerifyScreenState extends ConsumerState<TwoFAVerifyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // If already verified, go to dashboard immediately
     if (ref.read(twoFAVerifiedProvider)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         context.go('/dashboard');
