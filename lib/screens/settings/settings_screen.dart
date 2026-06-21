@@ -111,21 +111,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 16),
 
               if (isOwner) ...[
-                _buildSectionHeader('👥 Staff Management'),
-                _buildSettingsTile(
-                  icon: Icons.schedule,
-                  title: 'Shift Management',
-                  subtitle: 'Create and manage staff shifts',
-                  onTap: () => context.go('/shifts'),
-                  color: Colors.purple,
-                ),
-                _buildSettingsTile(
-                  icon: Icons.people,
-                  title: 'Manage Staff',
-                  subtitle: 'Add, remove, or promote staff members',
-                  onTap: _showStaffManagementDialog,
-                  color: Colors.purple,
-                ),
+                _buildSectionHeader(' Staff Management'),
                 _buildSettingsTile(
                   icon: Icons.security,
                   title: 'Manage Permissions',
@@ -135,7 +121,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
               ],
-
+              
               if (!isOwner) ...[
                 _buildSectionHeader('🔑 Your Permissions'),
                 ..._buildPermissionTiles(perms),
