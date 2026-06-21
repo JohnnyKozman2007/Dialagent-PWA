@@ -15,7 +15,7 @@ import '../screens/admin/permission_screen.dart';
 import '../screens/shifts/shift_screen.dart';
 import '../screens/shifts/my_shifts_screen.dart';
 import '../models/user_model.dart';
-
+import '../screens/twofa/twofa_verify_screen.dart';
 final router = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) async {
@@ -121,6 +121,16 @@ final router = GoRouter(
       name: 'my-shifts',
       builder: (context, state) => const MyShiftsScreen(),
     ),
+
+    GoRoute(
+      path: '/verify-2fa',
+      name: 'verify-2fa',
+      builder: (context, state) {
+        final email = state.extra as String? ?? '';
+        return TwoFAVerifyScreen(email: email);
+      },
+    ),
+    
     GoRoute(
       path: '/edit-profile',
       name: 'edit-profile',
