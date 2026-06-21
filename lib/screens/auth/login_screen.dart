@@ -42,16 +42,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .timeout(const Duration(seconds: 5));
 
       final has2FA = doc.data()?['twoFAEnabled'] ?? false;
+      final has2FA = doc.data()?['twoFAEnabled'] ?? false;
       final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
-
-      if (!mounted) return;
-
+      
       if (!has2FA) {
+        // If 2FA is not set up, force setup
         context.go('/twofa');
-      } else if (!hasOnboarding) {
-        context.go('/onboarding');
       } else {
-        context.go('/dashboard');
+        // 🔥 2FA IS ENABLED — FORCE VERIFICATION
+        context.go('/verify-2fa', extra: user.email);
       }
     } catch (e) {
       if (mounted) {
