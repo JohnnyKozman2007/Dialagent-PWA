@@ -122,11 +122,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 16),
               ],
               
-              if (!isOwner) ...[
-                _buildSectionHeader('🔑 Your Permissions'),
-                ..._buildPermissionTiles(perms),
-                const SizedBox(height: 16),
-              ],
+ 
 
               _buildSectionHeader('🎨 Appearance'),
               _buildSettingsTile(
