@@ -34,95 +34,29 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => isLoading = true);
 
     try {
-      final email = emailController.text.trim();
+      final email = emailController.text.trim().toLowerCase();
 
-      // 🔍 Step 1: Check if there's an invite for this email
-      final inviteQuery = await FirebaseFirestore.instance
-          .collection('invites')
-          .where('email', isEqualTo: email)
-          .where('used', isEqualTo: false)
-          .limit(1)
-          .get();
-
-      // 🔥 Step 2: If no invite exists, check if this is the first user (no users in system)
-      if (inviteQuery.docs.isEmpty) {
-        // Check if there are any existing users
-        final usersSnapshot = await FirebaseFirestore.instance
-            .collection('users')
-            .limit(1)
-            .get();
-
-        if (usersSnapshot.docs.isEmpty) {
-          // ✅ First user ever — allow sign-up as Owner (no invite needed)
-          print('🔥 First user sign-up — creating as Owner');
-          final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-            email: email,
-            password: passwordController.text.trim(),
-          );
-
-          await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
-            'email': email,
-            'role': 'Owner',
-            'restaurantId': userCredential.user!.uid,
-            'restaurantName': '',
-            'phone': '',
-            'address': '',
-            'onboardingCompleted': false,
-            'twoFAEnabled': false,
-            'isVerified': false,
-            'createdAt': FieldValue.serverTimestamp(),
-          });
-
-          // Redirect to 2FA
-          context.go('/twofa');
-          setState(() => isLoading = false);
-          return;
-        } else {
-          // ❌ Users already exist — require invite
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You are not authorized to create an account. Please contact the restaurant owner.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          setState(() => isLoading = false);
-          return;
-        }
-      }
-
-      // ✅ Step 3: Invite exists — proceed with normal flow
-      final inviteDoc = inviteQuery.docs.first;
-      final role = inviteDoc.data()['role'] ?? 'Staff';
-      final restaurantId = inviteDoc.data()['restaurantId'] ?? '';
-
-      if (restaurantId.isEmpty) {
-        print('⚠️ RestaurantId is empty, using UID as fallback');
-      }
-
-      // Create the user
+      // 1️⃣ CREATE THE USER (no invite check)
       final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: passwordController.text.trim(),
       );
 
-      // Save user data with the role from invite
+      // 2️⃣ SAVE TO FIRESTORE — isApproved defaults to FALSE
       await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
         'email': email,
-        'role': role,
-        'restaurantId': restaurantId.isNotEmpty ? restaurantId : userCredential.user!.uid,
+        'role': 'Owner', // default role
+        'restaurantId': userCredential.user!.uid,
         'restaurantName': '',
         'phone': '',
         'address': '',
         'onboardingCompleted': false,
         'twoFAEnabled': false,
-        'isVerified': false,
+        'isApproved': false, // 🔥 KEY FIELD — YOU CONTROL THIS
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // Mark invite as used
-      await inviteDoc.reference.update({'used': true});
-
-      // Go to 2FA setup
+      // 3️⃣ GO TO 2FA SETUP
       context.go('/twofa');
     } on FirebaseAuthException catch (e) {
       String message = 'Sign-up failed';
@@ -138,7 +72,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // FORCE LIGHT THEME
     return Theme(
       data: ThemeData.light().copyWith(
         useMaterial3: true,
