@@ -15,6 +15,7 @@ class UserModel {
   final String? twoFASecret;
   final DateTime createdAt;
   final UserPermissions permissions;
+  final bool isVerified; // 🔥 NEW FIELD
 
   UserModel({
     required this.uid,
@@ -29,7 +30,8 @@ class UserModel {
     this.twoFAEnabled = false,
     this.twoFASecret,
     required this.createdAt,
-    this.permissions = const UserPermissions(), // <-- ADD 'const' HERE
+    this.permissions = const UserPermissions(),
+    this.isVerified = false, // 🔥 DEFAULT TO FALSE
   });
 
   Map<String, dynamic> toMap() {
@@ -47,6 +49,7 @@ class UserModel {
       'twoFASecret': twoFASecret,
       'createdAt': createdAt,
       'permissions': permissions.toMap(),
+      'isVerified': isVerified, // 🔥 SAVE IT
     };
   }
 
@@ -66,7 +69,8 @@ class UserModel {
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       permissions: map['permissions'] != null
           ? UserPermissions.fromMap(map['permissions'])
-          : UserPermissions.staffPermissions(), // <-- NOW WORKS (it's a method)
+          : UserPermissions.staffPermissions(),
+      isVerified: map['isVerified'] ?? false, // 🔥 READ IT
     );
   }
 }
