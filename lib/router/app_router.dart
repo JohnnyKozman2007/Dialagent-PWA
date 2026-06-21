@@ -26,7 +26,6 @@ final router = GoRouter(
   redirect: (context, state) async {
     final user = FirebaseAuth.instance.currentUser;
 
-    // --- NOT LOGGED IN ---
     if (user == null) {
       final allowedPaths = ['/login', '/signup', '/recovery'];
       if (!allowedPaths.contains(state.uri.path)) {
@@ -35,13 +34,12 @@ final router = GoRouter(
       return null;
     }
 
-    // --- LOGGED IN: If already on a flow screen, don't interrupt ---
+    // If already on a flow screen, don't interrupt
     final flowPaths = ['/twofa', '/onboarding', '/pending-approval', '/verify-2fa'];
     if (flowPaths.contains(state.uri.path)) {
       return null;
     }
 
-    // --- FETCH USER DATA ---
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
@@ -51,33 +49,30 @@ final router = GoRouter(
 
       final has2FA = doc.data()?['twoFAEnabled'] ?? false;
       final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
-      final isVerified = doc.data()?['isVerified'] ?? false;
-      final role = doc.data()?['role'] ?? 'Staff';
+      final isApproved = doc.data()?['isApproved'] ?? false; // 🔥 NEW FIELD
 
-      // 1️⃣ 2FA CHECK — if not set up, force /twofa
+      // 1️⃣ 2FA CHECK
       if (!has2FA) {
         return '/twofa';
       }
 
-      // 2️⃣ ONBOARDING CHECK — if not completed, force /onboarding
+      // 2️⃣ ONBOARDING CHECK
       if (!hasOnboarding) {
         return '/onboarding';
       }
 
-      // 3️⃣ VERIFICATION CHECK — if Owner and not verified, force /pending-approval
-      if (role == 'Owner' && !isVerified) {
+      // 3️⃣ APPROVAL CHECK — 🔥 ALL USERS MUST BE APPROVED
+      if (!isApproved) {
         return '/pending-approval';
       }
 
-      // 4️⃣ ALL DONE — redirect from login/root to dashboard
+      // 4️⃣ ALL DONE
       if (state.uri.path == '/login' || state.uri.path == '/') {
         return '/dashboard';
       }
 
-      // For any other route, allow access
       return null;
     } catch (e) {
-      // If Firestore fails, go to onboarding as safe fallback
       if (state.uri.path == '/login' || state.uri.path == '/') {
         return '/onboarding';
       }
