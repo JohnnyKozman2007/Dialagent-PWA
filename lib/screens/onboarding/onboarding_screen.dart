@@ -92,7 +92,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'onboardingCompleted': true,
           'email': user.email,
           'restaurantId': user.uid,
-          'isVerified': false, // 🔥 ADD THIS LINE
+          'isApproved': false, // 🔥 ADD THIS — default to NOT approved
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
