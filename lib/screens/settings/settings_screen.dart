@@ -120,6 +120,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
               // --- Staff Management (Owner Only) ---
               if (isOwner) ...[
+                _buildSettingsTile(
+                  icon: Icons.mail_outline,
+                  title: 'Invite Staff',
+                  subtitle: 'Send email invitations to new staff or managers',
+                  onTap: () => context.go('/invite'),
+                  color: Colors.teal,
+                ),
                 _buildSectionHeader('👥 Staff Management'),
                 _buildSettingsTile(
                   icon: Icons.security,
