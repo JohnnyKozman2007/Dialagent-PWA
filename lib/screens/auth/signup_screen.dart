@@ -36,7 +36,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     try {
       final email = emailController.text.trim();
 
-      // 🔥 Check for a valid invite
+      // 🔍 Step 1: Check if there's an invite for this email
       final inviteQuery = await FirebaseFirestore.instance
           .collection('invites')
           .where('email', isEqualTo: email)
@@ -44,52 +44,82 @@ class _SignUpScreenState extends State<SignUpScreen> {
           .limit(1)
           .get();
 
+      // 🔥 Step 2: If no invite exists, check if this is the first user (no users in system)
       if (inviteQuery.docs.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('You are not authorized to create an account. Please contact the restaurant owner.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() => isLoading = false);
-        return;
+        // Check if there are any existing users
+        final usersSnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .limit(1)
+            .get();
+
+        if (usersSnapshot.docs.isEmpty) {
+          // ✅ First user ever — allow sign-up as Owner (no invite needed)
+          print('🔥 First user sign-up — creating as Owner');
+          final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: email,
+            password: passwordController.text.trim(),
+          );
+
+          await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+            'email': email,
+            'role': 'Owner',
+            'restaurantId': userCredential.user!.uid,
+            'restaurantName': '',
+            'phone': '',
+            'address': '',
+            'onboardingCompleted': false,
+            'twoFAEnabled': false,
+            'isVerified': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+
+          // Redirect to 2FA
+          context.go('/twofa');
+          setState(() => isLoading = false);
+          return;
+        } else {
+          // ❌ Users already exist — require invite
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You are not authorized to create an account. Please contact the restaurant owner.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          setState(() => isLoading = false);
+          return;
+        }
       }
 
+      // ✅ Step 3: Invite exists — proceed with normal flow
       final inviteDoc = inviteQuery.docs.first;
       final role = inviteDoc.data()['role'] ?? 'Staff';
       final restaurantId = inviteDoc.data()['restaurantId'] ?? '';
 
       if (restaurantId.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Invalid invite: missing restaurant.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        setState(() => isLoading = false);
-        return;
+        print('⚠️ RestaurantId is empty, using UID as fallback');
       }
 
-      // 🔥 Create the user
+      // Create the user
       final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: passwordController.text.trim(),
       );
 
-      // 🔥 Save user data with restaurantId and role
+      // Save user data with the role from invite
       await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
         'email': email,
         'role': role,
-        'restaurantId': restaurantId,
+        'restaurantId': restaurantId.isNotEmpty ? restaurantId : userCredential.user!.uid,
         'restaurantName': '',
         'phone': '',
         'address': '',
         'onboardingCompleted': false,
         'twoFAEnabled': false,
+        'isVerified': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // 🔥 Mark invite as used
+      // Mark invite as used
       await inviteDoc.reference.update({'used': true});
 
       // Go to 2FA setup
