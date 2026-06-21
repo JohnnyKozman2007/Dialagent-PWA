@@ -12,6 +12,7 @@ import '../twofa/twofa_verify_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import 'signup_screen.dart';
 import 'recovery_screen.dart';
+import 'pending_approval_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -46,6 +47,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       final has2FA = doc.data()?['twoFAEnabled'] ?? false;
       final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
+      final isVerified = doc.data()?['isVerified'] ?? false;
+      final role = doc.data()?['role'] ?? 'Staff';
 
       if (!mounted) return;
 
@@ -53,6 +56,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         context.go('/twofa');
       } else if (!hasOnboarding) {
         context.go('/onboarding');
+      } else if (role == 'Owner' && !isVerified) {
+        context.go('/pending-approval');
       } else {
         context.go('/dashboard');
       }
@@ -94,11 +99,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
         final has2FA = doc.data()?['twoFAEnabled'] ?? false;
         final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
+        final isVerified = doc.data()?['isVerified'] ?? false;
+        final role = doc.data()?['role'] ?? 'Staff';
 
         if (!has2FA) {
           context.go('/twofa');
+        } else if (!hasOnboarding) {
+          context.go('/onboarding');
+        } else if (role == 'Owner' && !isVerified) {
+          context.go('/pending-approval');
         } else {
-          context.go('/verify-2fa', extra: user.email);
+          context.go('/dashboard');
         }
       } catch (e) {
         context.go('/onboarding');
