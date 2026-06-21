@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // for Clipboard
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
@@ -58,82 +59,12 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
             stream: _getTasksStream(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
-                // 🔥 HANDLE INDEX ERROR GRACEFULLY
                 final error = snapshot.error.toString();
+                // Check if it's an index error
                 if (error.contains('index')) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.build, size: 64, color: Colors.orange),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Firestore Index Required',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'The database needs an index to sort tasks.\nPlease click the link below to create it.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
-                          ),
-                          const SizedBox(height: 20),
-                          if (error.contains('https://')) {
-                            InkWell(
-                              onTap: () {
-                                // Extract the URL from the error
-                                final start = error.indexOf('https://');
-                                final end = error.indexOf(' ', start);
-                                final url = end > start
-                                    ? error.substring(start, end)
-                                    : error.substring(start);
-                                // Open the link
-                                _openLink(url);
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.shade100,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.link,
-                                      color: Colors.green.shade700,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Create Index',
-                                      style: TextStyle(
-                                        color: Colors.green.shade700,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          },
-                          const SizedBox(height: 16),
-                          TextButton(
-                            onPressed: () {
-                              setState(() {});
-                            },
-                            child: const Text('Retry'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+                  return _buildIndexErrorScreen(error);
                 }
-                return Center(child: Text('Error: ${snapshot.error}'));
+                return Center(child: Text('Error: $error'));
               }
 
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -240,6 +171,8 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
     );
   }
 
+  // ---------- Helper Methods ----------
+
   Stream<QuerySnapshot> _getTasksStream() async* {
     final user = FirebaseAuth.instance.currentUser;
     final doc = await FirebaseFirestore.instance
@@ -256,7 +189,6 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
       return;
     }
 
-    // 🔥 FIXED: Use orderBy with the correct field
     yield* FirebaseFirestore.instance
         .collection('tasks')
         .where('restaurantId', isEqualTo: restaurantId)
@@ -264,14 +196,84 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
         .snapshots();
   }
 
-  // 🔥 Helper to open the index creation link
+  Widget _buildIndexErrorScreen(String error) {
+    // Extract URL from error message
+    final start = error.indexOf('https://');
+    final end = error.indexOf(' ', start);
+    final url = (start != -1)
+        ? (end > start ? error.substring(start, end) : error.substring(start))
+        : '';
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.build, size: 64, color: Colors.orange),
+            const SizedBox(height: 16),
+            const Text(
+              'Firestore Index Required',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'The database needs an index to sort tasks.\nPlease click the link below to create it.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            if (url.isNotEmpty)
+              InkWell(
+                onTap: () => _openLink(url),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.link,
+                        color: Colors.green.shade700,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Create Index',
+                        style: TextStyle(
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () {
+                setState(() {});
+              },
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _openLink(String url) {
-    // In Flutter Web, this works with the url_launcher package
-    // For now, just copy to clipboard or show the URL
+    // Copy to clipboard and show a SnackBar with the URL
+    Clipboard.setData(ClipboardData(text: url));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Copy this link and open it in your browser: $url'),
-        duration: const Duration(seconds: 5),
+        content: Text('Index creation link copied to clipboard!'),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
