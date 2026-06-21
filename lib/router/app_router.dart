@@ -26,6 +26,7 @@ final router = GoRouter(
   redirect: (context, state) async {
     final user = FirebaseAuth.instance.currentUser;
 
+    // --- NOT LOGGED IN ---
     if (user == null) {
       final allowedPaths = ['/login', '/signup', '/recovery'];
       if (!allowedPaths.contains(state.uri.path)) {
@@ -34,51 +35,49 @@ final router = GoRouter(
       return null;
     }
 
+    // --- LOGGED IN: If already on a flow screen, don't interrupt ---
+    final flowPaths = ['/twofa', '/onboarding', '/pending-approval', '/verify-2fa'];
+    if (flowPaths.contains(state.uri.path)) {
+      return null;
+    }
+
+    // --- FETCH USER DATA ---
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get()
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 5));
 
       final has2FA = doc.data()?['twoFAEnabled'] ?? false;
       final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
       final isVerified = doc.data()?['isVerified'] ?? false;
       final role = doc.data()?['role'] ?? 'Staff';
 
-      // 2FA not enabled → force setup
-      if (!has2FA && state.uri.path != '/twofa') {
+      // 1️⃣ 2FA CHECK — if not set up, force /twofa
+      if (!has2FA) {
         return '/twofa';
       }
 
-      // 🔥 PROTECT DASHBOARD FROM UNVERIFIED OWNERS
-      if (role == 'Owner' && !isVerified && state.uri.path != '/pending-approval') {
-        return '/pending-approval';
-      }
-
-      // 2FA enabled but trying to access dashboard without verification
-      if (has2FA && state.uri.path == '/dashboard') {
-        if (!SessionStorage.isTwoFAVerified()) {
-          return '/verify-2fa';
-        }
-        return null;
-      }
-
-      // Onboarding check
-      if (has2FA && !hasOnboarding && state.uri.path != '/onboarding') {
+      // 2️⃣ ONBOARDING CHECK — if not completed, force /onboarding
+      if (!hasOnboarding) {
         return '/onboarding';
       }
 
-      // All done → allow access
-      if (has2FA && hasOnboarding) {
-        if (state.uri.path == '/login' || state.uri.path == '/') {
-          return '/dashboard';
-        }
-        return null;
+      // 3️⃣ VERIFICATION CHECK — if Owner and not verified, force /pending-approval
+      if (role == 'Owner' && !isVerified) {
+        return '/pending-approval';
       }
 
+      // 4️⃣ ALL DONE — redirect from login/root to dashboard
+      if (state.uri.path == '/login' || state.uri.path == '/') {
+        return '/dashboard';
+      }
+
+      // For any other route, allow access
       return null;
     } catch (e) {
+      // If Firestore fails, go to onboarding as safe fallback
       if (state.uri.path == '/login' || state.uri.path == '/') {
         return '/onboarding';
       }
