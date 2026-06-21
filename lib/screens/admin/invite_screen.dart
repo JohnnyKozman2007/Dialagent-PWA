@@ -26,17 +26,27 @@ class _InviteScreenState extends State<InviteScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Not logged in');
 
-      // Get the owner's restaurantId
+      // Get the owner's document
       final ownerDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get();
-      final restaurantId = ownerDoc.data()?['restaurantId'];
-      if (restaurantId == null) {
+
+      String? restaurantId = ownerDoc.data()?['restaurantId'];
+
+      // 🔥 FIX: If restaurantId is missing, use the owner's UID
+      if (restaurantId == null || restaurantId.isEmpty) {
+        restaurantId = user.uid;
+        // Save it back to the owner's document so future invites work
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+          'restaurantId': restaurantId,
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Restaurant ID missing. Please set up your restaurant first.')),
+          const SnackBar(
+            content: Text('Restaurant ID assigned. You can now invite staff.'),
+            backgroundColor: Colors.green,
+          ),
         );
-        return;
       }
 
       final email = emailController.text.trim();
@@ -47,6 +57,7 @@ class _InviteScreenState extends State<InviteScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('This email is already registered.')),
         );
+        setState(() => isLoading = false);
         return;
       }
 
@@ -56,10 +67,12 @@ class _InviteScreenState extends State<InviteScreen> {
           .where('email', isEqualTo: email)
           .where('used', isEqualTo: false)
           .get();
+
       if (existingInvite.docs.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('An invite already exists for this email.')),
         );
+        setState(() => isLoading = false);
         return;
       }
 
