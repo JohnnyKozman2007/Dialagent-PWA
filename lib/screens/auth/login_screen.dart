@@ -54,8 +54,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } else if (!hasOnboarding) {
         context.go('/onboarding');
       } else {
-        // For existing session, we don't force 2FA verification here
-        // because it was already done during login.
         context.go('/dashboard');
       }
     } catch (e) {
@@ -98,14 +96,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
 
         if (!has2FA) {
-          // 2FA not set up — force setup
           context.go('/twofa');
         } else {
-          // 2FA is set up — force verification
           context.go('/verify-2fa', extra: user.email);
         }
       } catch (e) {
-        // If Firestore fails, go to onboarding as fallback
         context.go('/onboarding');
       }
     } on FirebaseAuthException catch (e) {
@@ -122,68 +117,76 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Card(
-            elevation: 8,
-            child: Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.restaurant, size: 64, color: Colors.green),
-                  const SizedBox(height: 20),
-                  const Text('Welcome Back', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 30),
-                  TextField(
-                    controller: emailController,
-                    decoration: InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      prefixIcon: const Icon(Icons.email),
+    // 🔥 FORCE LIGHT THEME ON LOGIN SCREEN
+    return Theme(
+      data: ThemeData.light().copyWith(
+        primarySwatch: Colors.green,
+        useMaterial3: true,
+        colorScheme: const ColorScheme.light(primary: Colors.green),
+      ),
+      child: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Card(
+              elevation: 8,
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.restaurant, size: 64, color: Colors.green),
+                    const SizedBox(height: 20),
+                    const Text('Welcome Back', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 30),
+                    TextField(
+                      controller: emailController,
+                      decoration: InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        prefixIcon: const Icon(Icons.email),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: passwordController,
-                    obscureText: true,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      prefixIcon: const Icon(Icons.lock),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: passwordController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        prefixIcon: const Icon(Icons.lock),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  isLoading
-                      ? const CircularProgressIndicator()
-                      : ElevatedButton(
-                          onPressed: _login,
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 50),
+                    const SizedBox(height: 24),
+                    isLoading
+                        ? const CircularProgressIndicator()
+                        : ElevatedButton(
+                            onPressed: _login,
+                            style: ElevatedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 50),
+                            ),
+                            child: const Text('LOGIN', style: TextStyle(fontSize: 16)),
                           ),
-                          child: const Text('LOGIN', style: TextStyle(fontSize: 16)),
-                        ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const RecoveryScreen()),
-                      );
-                    },
-                    child: const Text('Forgot Password?'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const SignUpScreen()),
-                      );
-                    },
-                    child: const Text('Create an account'),
-                  ),
-                ],
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const RecoveryScreen()),
+                        );
+                      },
+                      child: const Text('Forgot Password?'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const SignUpScreen()),
+                        );
+                      },
+                      child: const Text('Create an account'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
