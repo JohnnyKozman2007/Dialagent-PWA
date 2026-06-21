@@ -11,16 +11,13 @@ class PendingApprovalScreen extends StatefulWidget {
 }
 
 class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
-  bool _isLoading = true;
-  bool _isVerified = false;
-
   @override
   void initState() {
     super.initState();
-    _listenToVerificationStatus();
+    _listenToApprovalStatus();
   }
 
-  void _listenToVerificationStatus() {
+  void _listenToApprovalStatus() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       context.go('/login');
@@ -33,14 +30,8 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
         .snapshots()
         .listen((doc) {
       if (!mounted) return;
-      final isVerified = doc.data()?['isVerified'] ?? false;
-      setState(() {
-        _isVerified = isVerified;
-        _isLoading = false;
-      });
-
-      // If verified, navigate to dashboard
-      if (isVerified) {
+      final isApproved = doc.data()?['isApproved'] ?? false;
+      if (isApproved) {
         context.go('/dashboard');
       }
     });
@@ -70,14 +61,17 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Our team is reviewing your documentation.\nYou will receive access once approved.\nThis usually takes 24-48 hours.',
+                'Our team is reviewing your account.\nYou will receive access once approved.\nThis usually takes 24-48 hours.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
                 onPressed: () {
-                  setState(() => _isLoading = true);
+                  // The listener will catch the change automatically
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Checking approval status...')),
+                  );
                 },
                 icon: const Icon(Icons.refresh),
                 label: const Text('Check Status'),
