@@ -80,6 +80,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // 🔥 Generate restaurantId from the user's UID
       final restaurantId = user.uid;
 
+      // Inside _saveOnboarding()
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
         {
           'restaurantName': restaurantNameController.text.trim(),
@@ -90,7 +91,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           'tableCount': tableCount,
           'onboardingCompleted': true,
           'email': user.email,
-          'restaurantId': restaurantId, // 🔥 ADDED
+          'restaurantId': user.uid,
+          'isVerified': false, // 🔥 ADD THIS LINE
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
