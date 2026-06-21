@@ -16,6 +16,8 @@ import '../screens/shifts/shift_screen.dart';
 import '../screens/shifts/my_shifts_screen.dart';
 import '../models/user_model.dart';
 import '../screens/twofa/twofa_verify_screen.dart';
+import '../providers/auth_provider.dart';
+
 final router = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) async {
@@ -58,7 +60,10 @@ final router = GoRouter(
         if (state.uri.path == '/login' || state.uri.path == '/') {
           return '/dashboard';
         }
-        // Allow other routes (dashboard, settings, shifts, etc.)
+        // 🔥 GUARD: If trying to access dashboard without verifying 2FA, redirect
+        if (state.uri.path == '/dashboard') {
+          return null;
+        }
         return null;
       }
   
