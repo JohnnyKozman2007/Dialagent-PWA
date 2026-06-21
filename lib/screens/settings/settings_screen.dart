@@ -39,8 +39,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
         data: (UserModel? user) {
+          // 🔥 FIX: If user is null, refresh the provider and show loading
           if (user == null) {
-            return const Center(child: Text('User not found'));
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              ref.refresh(userProvider);
+            });
+            return const Center(child: CircularProgressIndicator());
           }
 
           final isOwner = user.role == 'Owner';
@@ -50,33 +54,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           return ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
+              // --- Profile Header ---
               _buildProfileHeader(user),
               const SizedBox(height: 24),
 
+              // --- Profile Section ---
               _buildSectionHeader('👤 Profile'),
               _buildSettingsTile(
                 icon: Icons.person,
                 title: 'Edit Profile',
                 subtitle: 'Name, email, phone',
-                onTap: () => context.push('/edit-profile', extra: user),
+                onTap: () => context.go('/edit-profile', extra: user),
                 color: Colors.green,
               ),
               _buildSettingsTile(
                 icon: Icons.lock,
                 title: 'Change Password',
-                subtitle: 'Update your password (requires 2FA)',  // <-- This text was already there, but confirm it
+                subtitle: 'Update your password (requires 2FA)',
                 onTap: () => _showChangePasswordDialog(context),
                 color: Colors.green,
               ),
               const SizedBox(height: 16),
 
+              // --- Restaurant Section (Owner & Manager) ---
               if (isManager) ...[
                 _buildSectionHeader('🏢 Restaurant Info'),
                 _buildSettingsTile(
                   icon: Icons.store,
                   title: user.restaurantName.isNotEmpty ? user.restaurantName : 'Set Restaurant Name',
                   subtitle: user.address ?? 'No address set',
-                  onTap: isOwner ? () => context.push('/edit-restaurant', extra: user) : null,
+                  onTap: isOwner ? () => context.go('/edit-restaurant', extra: user) : null,
                   color: Colors.blue,
                   isEditable: isOwner,
                 ),
@@ -99,6 +106,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 16),
               ],
 
+              // --- Security Section ---
               _buildSectionHeader('🔒 Security'),
               _buildSettingsTile(
                 icon: Icons.qr_code,
@@ -110,20 +118,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 16),
 
+              // --- Staff Management (Owner Only) ---
               if (isOwner) ...[
-                _buildSectionHeader(' Staff Management'),
+                _buildSectionHeader('👥 Staff Management'),
                 _buildSettingsTile(
                   icon: Icons.security,
                   title: 'Manage Permissions',
                   subtitle: 'Assign granular permissions to staff',
-                  onTap: () => context.push('/permissions', extra: user),
+                  onTap: () => context.go('/permissions', extra: user),
                   color: Colors.deepPurple,
                 ),
                 const SizedBox(height: 16),
               ],
-              
- 
 
+              // --- Appearance Section ---
               _buildSectionHeader('🎨 Appearance'),
               _buildSettingsTile(
                 icon: themeMode == ThemeMode.dark ? Icons.dark_mode : Icons.light_mode,
@@ -134,6 +142,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 16),
 
+              // --- Danger Section ---
               _buildSectionHeader('⚠️ Account'),
               _buildSettingsTile(
                 icon: Icons.logout,
@@ -151,6 +160,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  // --- Profile Header ---
   Widget _buildProfileHeader(UserModel user) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -215,6 +225,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  // --- Section Header ---
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
@@ -229,6 +240,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  // --- Settings Tile ---
   Widget _buildSettingsTile({
     required IconData icon,
     required String title,
@@ -270,317 +282,253 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  List<Widget> _buildPermissionTiles(UserPermissions perms) {
-    final List<Map<String, dynamic>> permList = [
-      {'label': 'Manage Staff', 'value': perms.canManageStaff, 'icon': Icons.people},
-      {'label': 'Manage Menu', 'value': perms.canManageMenu, 'icon': Icons.menu_book},
-      {'label': 'Manage Tables', 'value': perms.canManageTables, 'icon': Icons.table_restaurant},
-      {'label': 'View Revenue', 'value': perms.canViewRevenue, 'icon': Icons.monetization_on},
-      {'label': 'Manage Reservations', 'value': perms.canManageReservations, 'icon': Icons.calendar_today},
-      {'label': 'View Settings', 'value': perms.canViewSettings, 'icon': Icons.settings},
-    ];
+  // --- Change Password with 2FA ---
+  void _showChangePasswordDialog(BuildContext context) {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    final twoFAController = TextEditingController();
+    bool step2 = false;
 
-    return permList.map((item) {
-      return Card(
-        elevation: 0,
-        margin: const EdgeInsets.only(bottom: 2),
-        color: item['value'] ? Colors.green.shade50 : Colors.grey.shade50,
-        child: ListTile(
-          leading: Icon(
-            item['value'] ? Icons.check_circle : Icons.cancel,
-            color: item['value'] ? Colors.green : Colors.grey,
-            size: 20,
-          ),
-          title: Text(
-            item['label'],
-            style: TextStyle(
-              color: item['value'] 
-                  ? Theme.of(context).colorScheme.primary 
-                  : Theme.of(context).colorScheme.onSurfaceVariant,
-              fontWeight: item['value'] ? FontWeight.w500 : FontWeight.normal,
-            ),
-          ),
-          trailing: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: item['value'] ? Colors.green : Colors.grey,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              item['value'] ? 'Granted' : 'Denied',
-              style: const TextStyle(
-                fontSize: 10,
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      );
-    }).toList();
-  }
-
-  
-void _showChangePasswordDialog(BuildContext context) {
-  final currentPasswordController = TextEditingController();
-  final newPasswordController = TextEditingController();
-  final confirmPasswordController = TextEditingController();
-
-  // State variables
-  String? errorMessage;
-  bool isLoading = false;
-  bool step2 = false;
-  String? twoFACode;
-
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) {
-        return AlertDialog(
-          title: Text(step2 ? '🔐 2FA Verification' : 'Change Password'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!step2) ...[
-                // --- STEP 1: Enter passwords ---
-                TextField(
-                  controller: currentPasswordController,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Current Password',
-                    border: const OutlineInputBorder(),
-                    errorText: errorMessage,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: newPasswordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'New Password',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: confirmPasswordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Confirm New Password',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '✅ Your current password will be verified before 2FA',
-                  style: TextStyle(fontSize: 12, color: Colors.green),
-                ),
-              ] else ...[
-                // --- STEP 2: Enter 2FA code ---
-                const Icon(Icons.security, size: 48, color: Colors.green),
-                const SizedBox(height: 16),
-                const Text(
-                  'Enter your 2FA code to verify your identity',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  onChanged: (value) => setState(() => twoFACode = value.trim()),
-                  decoration: InputDecoration(
-                    labelText: '6-digit 2FA Code',
-                    border: const OutlineInputBorder(),
-                    counterText: '',
-                    errorText: errorMessage,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                // Reset everything on close
-                currentPasswordController.dispose();
-                newPasswordController.dispose();
-                confirmPasswordController.dispose();
-                Navigator.pop(context);
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (!step2) {
-                  // --- STEP 1: Validate passwords and re-authenticate ---
-                  setState(() {
-                    errorMessage = null;
-                    isLoading = true;
-                  });
-
-                  try {
-                    // Validate password fields
-                    if (newPasswordController.text != confirmPasswordController.text) {
-                      setState(() {
-                        errorMessage = 'Passwords do not match';
-                        isLoading = false;
-                      });
-                      return;
-                    }
-                    if (newPasswordController.text.length < 6) {
-                      setState(() {
-                        errorMessage = 'Password must be at least 6 characters';
-                        isLoading = false;
-                      });
-                      return;
-                    }
-
-                    final user = FirebaseAuth.instance.currentUser;
-                    if (user == null) {
-                      setState(() {
-                        errorMessage = 'User not logged in';
-                        isLoading = false;
-                      });
-                      return;
-                    }
-
-                    // 🔥 Step 1A: Verify the OLD password FIRST
-                    final credential = EmailAuthProvider.credential(
-                      email: user.email!,
-                      password: currentPasswordController.text,
-                    );
-                    await user.reauthenticateWithCredential(credential);
-
-                    // ✅ Old password is correct! Move to Step 2 (2FA)
-                    setState(() {
-                      isLoading = false;
-                      step2 = true;
-                      errorMessage = null;
-                      twoFACode = null; // Reset 2FA input
-                    });
-
-                  } on FirebaseAuthException catch (e) {
-                    String message = 'Re-authentication failed';
-                    if (e.code == 'wrong-password') {
-                      message = '❌ Current password is incorrect';
-                    } else if (e.code == 'user-not-found') {
-                      message = 'User not found';
-                    } else if (e.code == 'too-many-requests') {
-                      message = 'Too many failed attempts. Please try again later.';
-                    }
-                    setState(() {
-                      errorMessage = message;
-                      isLoading = false;
-                    });
-                  } catch (e) {
-                    setState(() {
-                      errorMessage = 'Error: $e';
-                      isLoading = false;
-                    });
-                  }
-                  return;
-                }
-
-                // --- STEP 2: Verify 2FA and update password ---
-                setState(() {
-                  errorMessage = null;
-                  isLoading = true;
-                });
-
-                try {
-                  final user = FirebaseAuth.instance.currentUser;
-                  if (user == null) {
-                    setState(() {
-                      errorMessage = 'User not logged in';
-                      isLoading = false;
-                    });
-                    return;
-                  }
-
-                  // Fetch 2FA secret from Firestore
-                  final doc = await FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(user.uid)
-                      .get();
-
-                  final secret = doc.data()?['twoFASecret'];
-                  if (secret == null) {
-                    setState(() {
-                      errorMessage = '2FA not set up. Please contact admin.';
-                      isLoading = false;
-                    });
-                    return;
-                  }
-
-                  // 🔥 Verify 2FA code
-                  final isValid = TOTPUtil.verifyCode(
-                    secretKey: secret,
-                    totpCode: twoFACode ?? '',
-                  );
-
-                  if (!isValid) {
-                    setState(() {
-                      errorMessage = '❌ Invalid 2FA code. Please try again.';
-                      isLoading = false;
-                      twoFACode = null; // Clear the input so user can retry
-                    });
-                    return;
-                  }
-
-                  // ✅ 2FA Verified — Update the password
-                  // Note: We already re-authenticated in Step 1, so we can just update
-                  await user.updatePassword(newPasswordController.text);
-
-                  // Success!
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('✅ Password updated successfully!'),
-                      backgroundColor: Colors.green,
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Text(step2 ? '🔐 2FA Verification' : 'Change Password'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!step2) ...[
+                  TextField(
+                    controller: currentPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Current Password',
+                      border: OutlineInputBorder(),
                     ),
-                  );
-
-                  // Clean up and close
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: newPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'New Password',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: confirmPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm New Password',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '✅ Your current password will be verified before 2FA',
+                    style: TextStyle(fontSize: 12, color: Colors.green),
+                  ),
+                ] else ...[
+                  const Icon(Icons.security, size: 48, color: Colors.green),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Enter your 2FA code to verify your identity',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: twoFAController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: const InputDecoration(
+                      labelText: '6-digit 2FA Code',
+                      border: OutlineInputBorder(),
+                      counterText: '',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  // Clean up on cancel
                   currentPasswordController.dispose();
                   newPasswordController.dispose();
                   confirmPasswordController.dispose();
+                  twoFAController.dispose();
                   Navigator.pop(context);
+                },
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (!step2) {
+                    // Step 1: Validate passwords and re-authenticate
+                    setState(() {
+                      _isLoading = true;
+                    });
 
-                } on FirebaseAuthException catch (e) {
-                  String message = 'Failed to update password';
-                  if (e.code == 'requires-recent-login') {
-                    message = 'Please log out and log in again';
-                  } else if (e.code == 'weak-password') {
-                    message = 'New password is too weak';
+                    try {
+                      if (newPasswordController.text != confirmPasswordController.text) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Passwords do not match')),
+                        );
+                        setState(() => _isLoading = false);
+                        return;
+                      }
+                      if (newPasswordController.text.length < 6) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Password must be at least 6 characters')),
+                        );
+                        setState(() => _isLoading = false);
+                        return;
+                      }
+
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('User not logged in')),
+                        );
+                        setState(() => _isLoading = false);
+                        return;
+                      }
+
+                      // Verify old password
+                      final credential = EmailAuthProvider.credential(
+                        email: user.email!,
+                        password: currentPasswordController.text,
+                      );
+                      await user.reauthenticateWithCredential(credential);
+
+                      // Move to 2FA step
+                      setState(() {
+                        _isLoading = false;
+                        step2 = true;
+                        twoFAController.clear();
+                      });
+                    } on FirebaseAuthException catch (e) {
+                      String message = 'Re-authentication failed';
+                      if (e.code == 'wrong-password') {
+                        message = '❌ Current password is incorrect';
+                      } else if (e.code == 'too-many-requests') {
+                        message = 'Too many failed attempts. Please try again later.';
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(message)),
+                      );
+                      setState(() => _isLoading = false);
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                      setState(() => _isLoading = false);
+                    }
+                    return;
                   }
-                  setState(() {
-                    errorMessage = message;
-                    isLoading = false;
-                  });
-                } catch (e) {
-                  setState(() {
-                    errorMessage = 'Error: $e';
-                    isLoading = false;
-                  });
-                }
-              },
-              child: isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(step2 ? 'Verify & Update' : 'Next ➜'),
-            ),
-          ],
-        );
-      },
-    ),
-  );
-}
-  
+
+                  // Step 2: Verify 2FA and update password
+                  setState(() => _isLoading = true);
+
+                  try {
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('User not logged in')),
+                      );
+                      setState(() => _isLoading = false);
+                      return;
+                    }
+
+                    // Fetch 2FA secret
+                    final doc = await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(user.uid)
+                        .get();
+
+                    final secret = doc.data()?['twoFASecret'];
+                    if (secret == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('2FA not set up. Please contact admin.')),
+                      );
+                      setState(() => _isLoading = false);
+                      return;
+                    }
+
+                    // Verify 2FA code
+                    final isValid = TOTPUtil.verifyCode(
+                      secretKey: secret,
+                      totpCode: twoFAController.text.trim(),
+                    );
+
+                    if (!isValid) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('❌ Invalid 2FA code. Please try again.')),
+                      );
+                      setState(() {
+                        _isLoading = false;
+                        twoFAController.clear();
+                      });
+                      return;
+                    }
+
+                    // Update password
+                    await user.updatePassword(newPasswordController.text);
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('✅ Password updated successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+
+                    // Clean up and close
+                    currentPasswordController.dispose();
+                    newPasswordController.dispose();
+                    confirmPasswordController.dispose();
+                    twoFAController.dispose();
+                    Navigator.pop(context);
+
+                  } on FirebaseAuthException catch (e) {
+                    String message = 'Failed to update password';
+                    if (e.code == 'requires-recent-login') {
+                      message = 'Please log out and log in again';
+                    } else if (e.code == 'weak-password') {
+                      message = 'New password is too weak';
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(message)),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
+
+                  setState(() => _isLoading = false);
+                },
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(step2 ? 'Verify & Update' : 'Next ➜'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // --- Cuisine Picker ---
   void _showCuisinePicker(BuildContext context, UserModel user) {
     final List<String> cuisines = [
       'Italian', 'French', 'Chinese', 'Japanese', 'Mexican',
@@ -612,7 +560,7 @@ void _showChangePasswordDialog(BuildContext context) {
                       .collection('users')
                       .doc(uid)
                       .update({'cuisineType': cuisine});
-                  ref.invalidate(userProvider);
+                  ref.refresh(userProvider);
                   Navigator.pop(context);
                 }
               },
@@ -623,6 +571,7 @@ void _showChangePasswordDialog(BuildContext context) {
     );
   }
 
+  // --- Table Count Picker ---
   void _showTableCountPicker(BuildContext context, UserModel user) {
     int tempCount = user.tableCount ?? 10;
 
@@ -676,7 +625,7 @@ void _showChangePasswordDialog(BuildContext context) {
                       .collection('users')
                       .doc(uid)
                       .update({'tableCount': tempCount});
-                  ref.invalidate(userProvider);
+                  ref.refresh(userProvider);
                   Navigator.pop(context);
                 }
               },
@@ -688,22 +637,7 @@ void _showChangePasswordDialog(BuildContext context) {
     );
   }
 
-  void _showStaffManagementDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Staff Management'),
-        content: const Text('Manage your staff members here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
+  // --- Logout ---
   void _logout() async {
     final confirm = await showDialog<bool>(
       context: context,
