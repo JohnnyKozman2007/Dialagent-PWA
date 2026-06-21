@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_functions/firebase_functions.dart'; // or use httpsCallable
+import 'package:cloud_functions/cloud_functions.dart';   // Correct import
 import 'package:my_restaurant_app/models/task_model.dart';
 
 class CalendarSyncService {
