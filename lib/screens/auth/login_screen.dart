@@ -74,6 +74,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
+      ref.read(twoFAVerifiedProvider.notifier).state = false;
 
       ref.invalidate(userProvider);
       ref.invalidate(userRoleProvider);
