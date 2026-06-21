@@ -56,7 +56,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
     // 🔥 FORCE LIGHT THEME ON SIGNUP SCREEN
     return Theme(
       data: ThemeData.light().copyWith(
-        primarySwatch: Colors.green,
         useMaterial3: true,
         colorScheme: const ColorScheme.light(primary: Colors.green),
       ),
