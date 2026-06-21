@@ -113,7 +113,7 @@ class _InviteScreenState extends State<InviteScreen> {
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/settings'),
+          onPressed: () => context.pop(),
         ),
       ),
       body: Padding(
