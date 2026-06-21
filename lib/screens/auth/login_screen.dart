@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/user_provider.dart';
-import '../../providers/auth_provider.dart'; // <-- ADD THIS
+import '../../providers/auth_provider.dart';
+import '../../utils/session_storage.dart';
 import '../onboarding/onboarding_screen.dart';
 import '../twofa/twofa_setup_screen.dart';
-import '../twofa/twofa_verify_screen.dart'; // <-- ADD THIS
+import '../twofa/twofa_verify_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import 'signup_screen.dart';
 import 'recovery_screen.dart';
@@ -80,7 +81,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         password: passwordController.text.trim(),
       );
 
-      // Reset 2FA verification flag for new login session
+      // Reset 2FA session flag on new login
+      SessionStorage.setTwoFAVerified(false);
       ref.read(twoFAVerifiedProvider.notifier).state = false;
 
       final user = FirebaseAuth.instance.currentUser!;
