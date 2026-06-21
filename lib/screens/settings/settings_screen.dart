@@ -39,7 +39,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
         data: (UserModel? user) {
-          // 🔥 FIX: If user is null, refresh the provider and show loading
           if (user == null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               ref.refresh(userProvider);
@@ -118,23 +117,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 16),
 
-              // --- Staff Management (Owner Only) ---
+              // --- Staff Management (Owner Only, Verified) ---
               if (isOwner) ...[
-                _buildSettingsTile(
-                  icon: Icons.mail_outline,
-                  title: 'Invite Staff',
-                  subtitle: 'Send email invitations to new staff or managers',
-                  onTap: () => context.go('/invite'),
-                  color: Colors.teal,
-                ),
                 _buildSectionHeader('👥 Staff Management'),
-                _buildSettingsTile(
-                  icon: Icons.security,
-                  title: 'Manage Permissions',
-                  subtitle: 'Assign granular permissions to staff',
-                  onTap: () => context.go('/permissions', extra: user),
-                  color: Colors.deepPurple,
-                ),
+                if (user.isVerified) ...[
+                  _buildSettingsTile(
+                    icon: Icons.mail_outline,
+                    title: 'Invite Staff',
+                    subtitle: 'Send email invitations to new staff or managers',
+                    onTap: () => context.go('/invite'),
+                    color: Colors.teal,
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.security,
+                    title: 'Manage Permissions',
+                    subtitle: 'Assign granular permissions to staff',
+                    onTap: () => context.go('/permissions', extra: user),
+                    color: Colors.deepPurple,
+                  ),
+                ] else ...[
+                  _buildSettingsTile(
+                    icon: Icons.lock,
+                    title: 'Staff Management (Locked)',
+                    subtitle: 'Waiting for account verification',
+                    onTap: null,
+                    color: Colors.grey,
+                    isEditable: false,
+                  ),
+                ],
                 const SizedBox(height: 16),
               ],
 
@@ -365,7 +375,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             actions: [
               TextButton(
                 onPressed: () {
-                  // Clean up on cancel
                   currentPasswordController.dispose();
                   newPasswordController.dispose();
                   confirmPasswordController.dispose();
@@ -377,7 +386,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ElevatedButton(
                 onPressed: () async {
                   if (!step2) {
-                    // Step 1: Validate passwords and re-authenticate
                     setState(() {
                       _isLoading = true;
                     });
@@ -407,14 +415,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         return;
                       }
 
-                      // Verify old password
                       final credential = EmailAuthProvider.credential(
                         email: user.email!,
                         password: currentPasswordController.text,
                       );
                       await user.reauthenticateWithCredential(credential);
 
-                      // Move to 2FA step
                       setState(() {
                         _isLoading = false;
                         step2 = true;
@@ -440,7 +446,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     return;
                   }
 
-                  // Step 2: Verify 2FA and update password
                   setState(() => _isLoading = true);
 
                   try {
@@ -453,7 +458,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       return;
                     }
 
-                    // Fetch 2FA secret
                     final doc = await FirebaseFirestore.instance
                         .collection('users')
                         .doc(user.uid)
@@ -468,7 +472,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       return;
                     }
 
-                    // Verify 2FA code
                     final isValid = TOTPUtil.verifyCode(
                       secretKey: secret,
                       totpCode: twoFAController.text.trim(),
@@ -485,7 +488,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       return;
                     }
 
-                    // Update password
                     await user.updatePassword(newPasswordController.text);
 
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -495,13 +497,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     );
 
-                    // Clean up and close
                     currentPasswordController.dispose();
                     newPasswordController.dispose();
                     confirmPasswordController.dispose();
                     twoFAController.dispose();
                     Navigator.pop(context);
-
                   } on FirebaseAuthException catch (e) {
                     String message = 'Failed to update password';
                     if (e.code == 'requires-recent-login') {
