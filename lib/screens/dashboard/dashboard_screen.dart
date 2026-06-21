@@ -47,7 +47,7 @@ class AgenticEngine {
             title: '⚙️ Settings',
             subtitle: 'Update business info',
             icon: Icons.settings,
-            route: '/settings',
+            route: '/settings', // ✅ Settings for Owner
           ),
         ],
       );
@@ -76,10 +76,10 @@ class AgenticEngine {
             route: null,
           ),
           DashboardCard(
-            title: '🔔 Reservation Alerts',
-            subtitle: '2 new reservations today',
-            icon: Icons.notifications_active,
-            route: null,
+            title: '⚙️ Settings',
+            subtitle: 'Update business info',
+            icon: Icons.settings,
+            route: '/settings', // ✅ Settings for Manager
           ),
         ],
       );
@@ -108,10 +108,10 @@ class AgenticEngine {
             route: null,
           ),
           DashboardCard(
-            title: '🍽️ Assigned Tables',
-            subtitle: 'Tables: 3, 7, 12',
-            icon: Icons.table_restaurant,
-            route: null,
+            title: '⚙️ Settings',
+            subtitle: 'Update business info',
+            icon: Icons.settings,
+            route: '/settings', // ✅ Settings for Staff
           ),
         ],
       );
