@@ -184,32 +184,42 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
 
               const SizedBox(height: 24),
 
+            
               if (secretKey != null)
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
+                    // 🔥 Use theme-aware background (light in dark mode, light grey in light mode)
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey.shade800
+                        : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
                     children: [
-                      const Text(
+                      Text(
                         'If you can\'t scan the QR code, enter this key manually:',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                        style: TextStyle(
+                          fontSize: 12,
+                          // 🔥 Use theme-aware text color (white in dark mode, dark grey in light mode)
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       SelectableText(
                         secretKey!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           fontFamily: 'monospace',
+                          // 🔥 Use theme-aware text color for the secret key
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ],
                   ),
-                ),
+                ),   
 
               const SizedBox(height: 30),
 
