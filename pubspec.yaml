@@ -10,30 +10,20 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Firebase (latest stable versions)
   firebase_core: ^2.24.2
   firebase_auth: ^4.16.0
   cloud_firestore: ^4.14.0
   firebase_storage: ^11.6.0
-  cloud_functions: ^4.6.0          # <-- CORRECT package name
+  cloud_functions: ^4.6.0          # <-- CORRECT package
 
-  # Routing & State
   go_router: ^13.0.1
   flutter_riverpod: ^2.4.9
-
-  # UI & Helpers
   equatable: ^2.0.5
   intl: ^0.18.1
   flutter_dotenv: ^5.1.0
-
-  # 2FA (TOTP)
   qr_flutter: ^4.1.0
   crypto: ^3.0.3
-
-  # Web specific
   universal_html: ^2.2.4
-
-  # PWA support
   flutter_web_plugins:
     sdk: flutter
 
