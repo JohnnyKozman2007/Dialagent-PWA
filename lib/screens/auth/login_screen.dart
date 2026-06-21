@@ -120,7 +120,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // 🔥 FORCE LIGHT THEME ON LOGIN SCREEN
     return Theme(
       data: ThemeData.light().copyWith(
-        primarySwatch: Colors.green,
         useMaterial3: true,
         colorScheme: const ColorScheme.light(primary: Colors.green),
       ),
