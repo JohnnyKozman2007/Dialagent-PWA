@@ -1,21 +1,24 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // <-- ADD THIS
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../utils/totp_util.dart';
+import '../../providers/auth_provider.dart'; // <-- ADD THIS
 import '../dashboard/dashboard_screen.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class TwoFAVerifyScreen extends StatefulWidget {
+// 1️⃣ CHANGE: StatefulWidget -> ConsumerStatefulWidget
+class TwoFAVerifyScreen extends ConsumerStatefulWidget {
   final String email;
 
   const TwoFAVerifyScreen({super.key, required this.email});
 
   @override
-  State<TwoFAVerifyScreen> createState() => _TwoFAVerifyScreenState();
+  ConsumerState<TwoFAVerifyScreen> createState() => _TwoFAVerifyScreenState();
 }
 
-class _TwoFAVerifyScreenState extends State<TwoFAVerifyScreen> {
+// 2️⃣ CHANGE: State -> ConsumerState
+class _TwoFAVerifyScreenState extends ConsumerState<TwoFAVerifyScreen> {
   final TextEditingController _codeController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
@@ -42,7 +45,6 @@ class _TwoFAVerifyScreenState extends State<TwoFAVerifyScreen> {
         return;
       }
 
-      // Get the user's 2FA secret from Firestore
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
@@ -50,12 +52,10 @@ class _TwoFAVerifyScreenState extends State<TwoFAVerifyScreen> {
 
       final secret = doc.data()?['twoFASecret'];
       if (secret == null) {
-        // If no secret, something is wrong — redirect to 2FA setup
         context.go('/twofa');
         return;
       }
 
-      // Verify the 2FA code
       final isValid = TOTPUtil.verifyCode(
         secretKey: secret,
         totpCode: code,
@@ -70,11 +70,17 @@ class _TwoFAVerifyScreenState extends State<TwoFAVerifyScreen> {
         return;
       }
 
-      // ✅ 2FA verified — now check onboarding
+      // ✅ 2FA VERIFIED SUCCESSFULLY
+
+      // 3️⃣ ACTION: Set the provider to TRUE (marks 2FA as done for this session)
+      ref.read(twoFAVerifiedProvider.notifier).state = true;
+
+      // 4️⃣ ACTION: Navigate to the next screen (Onboarding or Dashboard)
       final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
       if (!hasOnboarding) {
         context.go('/onboarding');
       } else {
+        // THIS IS THE ONLY `context.go('/dashboard')` YOU NEED TO WORRY ABOUT
         context.go('/dashboard');
       }
     } catch (e) {
@@ -154,7 +160,6 @@ class _TwoFAVerifyScreenState extends State<TwoFAVerifyScreen> {
 
                   TextButton(
                     onPressed: () {
-                      // Resend or go back to login
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Please check your authenticator app for the current code.')),
                       );
