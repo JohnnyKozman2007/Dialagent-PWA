@@ -1,13 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; // <-- ADD THIS
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../utils/totp_util.dart';
-import '../../providers/auth_provider.dart'; // <-- ADD THIS
-import '../dashboard/dashboard_screen.dart';
+import '../../providers/auth_provider.dart';
+import '../../utils/session_storage.dart';
 
-// 1️⃣ CHANGE: StatefulWidget -> ConsumerStatefulWidget
 class TwoFAVerifyScreen extends ConsumerStatefulWidget {
   final String email;
 
@@ -17,7 +16,6 @@ class TwoFAVerifyScreen extends ConsumerStatefulWidget {
   ConsumerState<TwoFAVerifyScreen> createState() => _TwoFAVerifyScreenState();
 }
 
-// 2️⃣ CHANGE: State -> ConsumerState
 class _TwoFAVerifyScreenState extends ConsumerState<TwoFAVerifyScreen> {
   final TextEditingController _codeController = TextEditingController();
   bool _isLoading = false;
@@ -52,6 +50,7 @@ class _TwoFAVerifyScreenState extends ConsumerState<TwoFAVerifyScreen> {
 
       final secret = doc.data()?['twoFASecret'];
       if (secret == null) {
+        // If no secret, something is wrong — redirect to 2FA setup
         context.go('/twofa');
         return;
       }
@@ -71,16 +70,14 @@ class _TwoFAVerifyScreenState extends ConsumerState<TwoFAVerifyScreen> {
       }
 
       // ✅ 2FA VERIFIED SUCCESSFULLY
-
-      // 3️⃣ ACTION: Set the provider to TRUE (marks 2FA as done for this session)
       ref.read(twoFAVerifiedProvider.notifier).state = true;
+      SessionStorage.setTwoFAVerified(true);
 
-      // 4️⃣ ACTION: Navigate to the next screen (Onboarding or Dashboard)
+      // Navigate to onboarding or dashboard
       final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
       if (!hasOnboarding) {
         context.go('/onboarding');
       } else {
-        // THIS IS THE ONLY `context.go('/dashboard')` YOU NEED TO WORRY ABOUT
         context.go('/dashboard');
       }
     } catch (e) {
@@ -93,6 +90,16 @@ class _TwoFAVerifyScreenState extends ConsumerState<TwoFAVerifyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // If already verified, go to dashboard immediately
+    if (ref.read(twoFAVerifiedProvider)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.go('/dashboard');
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('2FA Verification'),
