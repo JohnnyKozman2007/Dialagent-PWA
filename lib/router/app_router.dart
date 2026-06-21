@@ -6,6 +6,7 @@ import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
 import '../screens/auth/recovery_screen.dart';
 import '../screens/twofa/twofa_setup_screen.dart';
+import '../screens/twofa/twofa_verify_screen.dart';
 import '../screens/onboarding/onboarding_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/settings/settings_screen.dart';
@@ -15,15 +16,13 @@ import '../screens/admin/permission_screen.dart';
 import '../screens/shifts/shift_screen.dart';
 import '../screens/shifts/my_shifts_screen.dart';
 import '../models/user_model.dart';
-import '../screens/twofa/twofa_verify_screen.dart';
-import '../providers/auth_provider.dart';
+import '../utils/session_storage.dart';
 
 final router = GoRouter(
   initialLocation: '/login',
-
   redirect: (context, state) async {
     final user = FirebaseAuth.instance.currentUser;
-  
+
     if (user == null) {
       final allowedPaths = ['/login', '/signup', '/recovery'];
       if (!allowedPaths.contains(state.uri.path)) {
@@ -31,38 +30,35 @@ final router = GoRouter(
       }
       return null;
     }
-  
+
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get()
           .timeout(const Duration(seconds: 3));
-  
+
       final has2FA = doc.data()?['twoFAEnabled'] ?? false;
       final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
-  
+
       // 2FA not enabled → force setup
       if (!has2FA && state.uri.path != '/twofa') {
         return '/twofa';
       }
-  
-      // 2FA enabled but user is trying to go to dashboard without verifying
-      // The verify screen sets twoFAVerifiedProvider to true after successful verification
+
+      // 2FA enabled but trying to access dashboard without verification
       if (has2FA && state.uri.path == '/dashboard') {
-        // We can't access ref here directly, so we rely on the login flow
-        // If the user types /dashboard directly, they'll be redirected to /verify-2fa
-        // by the login flow. This guard is a safety net.
-        // For now, we just return null to allow the dashboard to load
-        // BUT the login flow ensures they go through /verify-2fa first
+        if (!SessionStorage.isTwoFAVerified()) {
+          return '/verify-2fa';
+        }
         return null;
       }
-  
+
       // Onboarding check
       if (has2FA && !hasOnboarding && state.uri.path != '/onboarding') {
         return '/onboarding';
       }
-  
+
       // All done → allow access
       if (has2FA && hasOnboarding) {
         if (state.uri.path == '/login' || state.uri.path == '/') {
@@ -70,7 +66,7 @@ final router = GoRouter(
         }
         return null;
       }
-  
+
       return null;
     } catch (e) {
       if (state.uri.path == '/login' || state.uri.path == '/') {
@@ -79,7 +75,6 @@ final router = GoRouter(
       return null;
     }
   },
-  
   routes: [
     GoRoute(
       path: '/login',
@@ -100,6 +95,14 @@ final router = GoRouter(
       path: '/twofa',
       name: 'twofa',
       builder: (context, state) => const TwoFASetupScreen(),
+    ),
+    GoRoute(
+      path: '/verify-2fa',
+      name: 'verify-2fa',
+      builder: (context, state) {
+        final email = state.extra as String? ?? '';
+        return TwoFAVerifyScreen(email: email);
+      },
     ),
     GoRoute(
       path: '/onboarding',
@@ -126,16 +129,6 @@ final router = GoRouter(
       name: 'my-shifts',
       builder: (context, state) => const MyShiftsScreen(),
     ),
-
-    GoRoute(
-      path: '/verify-2fa',
-      name: 'verify-2fa',
-      builder: (context, state) {
-        final email = state.extra as String? ?? '';
-        return TwoFAVerifyScreen(email: email);
-      },
-    ),
-    
     GoRoute(
       path: '/edit-profile',
       name: 'edit-profile',
