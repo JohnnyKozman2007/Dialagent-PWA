@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../utils/totp_util.dart';
 import '../dashboard/dashboard_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class TwoFAVerifyScreen extends StatefulWidget {
   final String email;
