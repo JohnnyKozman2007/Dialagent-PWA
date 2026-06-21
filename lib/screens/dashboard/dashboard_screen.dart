@@ -13,6 +13,7 @@ class AgenticEngine {
     final now = DateTime.now();
     final hour = now.hour;
 
+    // --- OWNER CONFIG ---
     if (role == 'Owner') {
       return AgenticConfig(
         role: role,
@@ -43,15 +44,25 @@ class AgenticEngine {
             icon: Icons.schedule,
             route: '/shifts',
           ),
+          // 🔥 TASKS CARD ADDED HERE
+          DashboardCard(
+            title: '📋 Tasks',
+            subtitle: 'View and manage tasks',
+            icon: Icons.task,
+            route: '/tasks',
+          ),
           DashboardCard(
             title: '⚙️ Settings',
             subtitle: 'Update business info',
             icon: Icons.settings,
-            route: '/settings', // ✅ Settings for Owner
+            route: '/settings',
           ),
         ],
       );
-    } else if (role == 'Manager') {
+    }
+
+    // --- MANAGER CONFIG ---
+    else if (role == 'Manager') {
       return AgenticConfig(
         role: role,
         greeting: _getGreeting(hour, 'Manager'),
@@ -62,6 +73,13 @@ class AgenticEngine {
             subtitle: 'View and manage shifts',
             icon: Icons.schedule,
             route: '/shifts',
+          ),
+          // 🔥 TASKS CARD ADDED HERE
+          DashboardCard(
+            title: '📋 Tasks',
+            subtitle: 'View and manage tasks',
+            icon: Icons.task,
+            route: '/tasks',
           ),
           DashboardCard(
             title: '🍽️ Table Management',
@@ -76,14 +94,23 @@ class AgenticEngine {
             route: null,
           ),
           DashboardCard(
+            title: '🔔 Reservation Alerts',
+            subtitle: '2 new reservations today',
+            icon: Icons.notifications_active,
+            route: null,
+          ),
+          DashboardCard(
             title: '⚙️ Settings',
             subtitle: 'Update business info',
             icon: Icons.settings,
-            route: '/settings', // ✅ Settings for Manager
+            route: '/settings',
           ),
         ],
       );
-    } else {
+    }
+
+    // --- STAFF CONFIG ---
+    else {
       return AgenticConfig(
         role: role,
         greeting: _getGreeting(hour, 'Staff'),
@@ -101,6 +128,13 @@ class AgenticEngine {
             icon: Icons.access_time,
             route: '/my-shifts',
           ),
+          // 🔥 TASKS CARD ADDED HERE
+          DashboardCard(
+            title: '📋 Tasks',
+            subtitle: 'View and claim tasks',
+            icon: Icons.task,
+            route: '/tasks',
+          ),
           DashboardCard(
             title: '✅ Tasks',
             subtitle: '3 tasks pending',
@@ -108,10 +142,16 @@ class AgenticEngine {
             route: null,
           ),
           DashboardCard(
+            title: '🍽️ Assigned Tables',
+            subtitle: 'Tables: 3, 7, 12',
+            icon: Icons.table_restaurant,
+            route: null,
+          ),
+          DashboardCard(
             title: '⚙️ Settings',
             subtitle: 'Update business info',
             icon: Icons.settings,
-            route: '/settings', // ✅ Settings for Staff
+            route: '/settings',
           ),
         ],
       );
@@ -126,11 +166,15 @@ class AgenticEngine {
   }
 }
 
+// --------------------------------------------
+// AGENTIC CONFIG
+// --------------------------------------------
 class AgenticConfig {
   final String role;
   final String greeting;
   final Color themeColor;
   final List<DashboardCard> cards;
+
   AgenticConfig({
     required this.role,
     required this.greeting,
@@ -139,11 +183,15 @@ class AgenticConfig {
   });
 }
 
+// --------------------------------------------
+// DASHBOARD CARD
+// --------------------------------------------
 class DashboardCard {
   final String title;
   final String subtitle;
   final IconData icon;
   final String? route;
+
   DashboardCard({
     required this.title,
     required this.subtitle,
