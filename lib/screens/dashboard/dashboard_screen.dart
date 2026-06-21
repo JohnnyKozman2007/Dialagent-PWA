@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/user_provider.dart';
+import '../../utils/session_storage.dart';
 
+// --------------------------------------------
+// AGENTIC ENGINE (Config-based)
+// --------------------------------------------
 class AgenticEngine {
   static AgenticConfig getConfig(String role) {
     final now = DateTime.now();
@@ -148,6 +152,9 @@ class DashboardCard {
   });
 }
 
+// --------------------------------------------
+// DASHBOARD SCREEN
+// --------------------------------------------
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -165,6 +172,9 @@ class DashboardScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
+              // Clear 2FA session flag on logout
+              SessionStorage.clear();
+
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
