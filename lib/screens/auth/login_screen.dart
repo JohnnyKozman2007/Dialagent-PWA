@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/auth_provider.dart'; // <-- ADD THIS
 import '../onboarding/onboarding_screen.dart';
 import '../twofa/twofa_setup_screen.dart';
+import '../twofa/twofa_verify_screen.dart'; // <-- ADD THIS
 import '../dashboard/dashboard_screen.dart';
 import 'signup_screen.dart';
 import 'recovery_screen.dart';
@@ -42,15 +44,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           .timeout(const Duration(seconds: 5));
 
       final has2FA = doc.data()?['twoFAEnabled'] ?? false;
-      final has2FA = doc.data()?['twoFAEnabled'] ?? false;
       final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
-      
+
+      if (!mounted) return;
+
       if (!has2FA) {
-        // If 2FA is not set up, force setup
         context.go('/twofa');
+      } else if (!hasOnboarding) {
+        context.go('/onboarding');
       } else {
-        // 🔥 2FA IS ENABLED — FORCE VERIFICATION
-        context.go('/verify-2fa', extra: user.email);
+        // For existing session, we don't force 2FA verification here
+        // because it was already done during login.
+        context.go('/dashboard');
       }
     } catch (e) {
       if (mounted) {
@@ -74,10 +79,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
-      ref.read(twoFAVerifiedProvider.notifier).state = false;
 
-      ref.invalidate(userProvider);
-      ref.invalidate(userRoleProvider);
+      // Reset 2FA verification flag for new login session
+      ref.read(twoFAVerifiedProvider.notifier).state = false;
 
       final user = FirebaseAuth.instance.currentUser!;
 
@@ -92,13 +96,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
 
         if (!has2FA) {
+          // 2FA not set up — force setup
           context.go('/twofa');
-        } else if (!hasOnboarding) {
-          context.go('/onboarding');
         } else {
-          context.go('/dashboard');
+          // 2FA is set up — force verification
+          context.go('/verify-2fa', extra: user.email);
         }
       } catch (e) {
+        // If Firestore fails, go to onboarding as fallback
         context.go('/onboarding');
       }
     } on FirebaseAuthException catch (e) {
