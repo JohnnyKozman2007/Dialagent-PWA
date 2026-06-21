@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../twofa/twofa_setup_screen.dart';
 
@@ -33,11 +34,65 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => isLoading = true);
 
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
+      final email = emailController.text.trim();
+
+      // 🔥 Check for a valid invite
+      final inviteQuery = await FirebaseFirestore.instance
+          .collection('invites')
+          .where('email', isEqualTo: email)
+          .where('used', isEqualTo: false)
+          .limit(1)
+          .get();
+
+      if (inviteQuery.docs.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You are not authorized to create an account. Please contact the restaurant owner.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => isLoading = false);
+        return;
+      }
+
+      final inviteDoc = inviteQuery.docs.first;
+      final role = inviteDoc.data()['role'] ?? 'Staff';
+      final restaurantId = inviteDoc.data()['restaurantId'] ?? '';
+
+      if (restaurantId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid invite: missing restaurant.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => isLoading = false);
+        return;
+      }
+
+      // 🔥 Create the user
+      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
         password: passwordController.text.trim(),
       );
 
+      // 🔥 Save user data with restaurantId and role
+      await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+        'email': email,
+        'role': role,
+        'restaurantId': restaurantId,
+        'restaurantName': '',
+        'phone': '',
+        'address': '',
+        'onboardingCompleted': false,
+        'twoFAEnabled': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // 🔥 Mark invite as used
+      await inviteDoc.reference.update({'used': true});
+
+      // Go to 2FA setup
       context.go('/twofa');
     } on FirebaseAuthException catch (e) {
       String message = 'Sign-up failed';
@@ -53,7 +108,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 FORCE LIGHT THEME ON SIGNUP SCREEN
+    // FORCE LIGHT THEME
     return Theme(
       data: ThemeData.light().copyWith(
         useMaterial3: true,
