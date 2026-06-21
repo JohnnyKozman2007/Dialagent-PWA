@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
 import '../screens/auth/recovery_screen.dart';
+import '../screens/auth/pending_approval_screen.dart';
 import '../screens/twofa/twofa_setup_screen.dart';
 import '../screens/twofa/twofa_verify_screen.dart';
 import '../screens/onboarding/onboarding_screen.dart';
@@ -13,12 +14,12 @@ import '../screens/settings/settings_screen.dart';
 import '../screens/settings/edit_profile_screen.dart';
 import '../screens/settings/edit_restaurant_screen.dart';
 import '../screens/admin/permission_screen.dart';
+import '../screens/admin/invite_screen.dart';
 import '../screens/shifts/shift_screen.dart';
 import '../screens/shifts/my_shifts_screen.dart';
+import '../screens/tasks/task_screen.dart';
 import '../models/user_model.dart';
 import '../utils/session_storage.dart';
-import '../screens/admin/invite_screen.dart';
-import '../screens/tasks/task_screen.dart';
 
 final router = GoRouter(
   initialLocation: '/login',
@@ -42,15 +43,21 @@ final router = GoRouter(
 
       final has2FA = doc.data()?['twoFAEnabled'] ?? false;
       final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
+      final isVerified = doc.data()?['isVerified'] ?? false;
+      final role = doc.data()?['role'] ?? 'Staff';
 
       // 2FA not enabled → force setup
       if (!has2FA && state.uri.path != '/twofa') {
         return '/twofa';
       }
 
+      // 🔥 PROTECT DASHBOARD FROM UNVERIFIED OWNERS
+      if (role == 'Owner' && !isVerified && state.uri.path != '/pending-approval') {
+        return '/pending-approval';
+      }
+
       // 2FA enabled but trying to access dashboard without verification
       if (has2FA && state.uri.path == '/dashboard') {
-        // 🔥 Check session storage to see if 2FA was verified this session
         if (!SessionStorage.isTwoFAVerified()) {
           return '/verify-2fa';
         }
@@ -80,16 +87,6 @@ final router = GoRouter(
   },
   routes: [
     GoRoute(
-      path: '/invite',
-      name: 'invite',
-      builder: (context, state) => const InviteScreen(),
-    ),
-    GoRoute(
-      path: '/tasks',
-      name: 'tasks',
-      builder: (context, state) => const TaskScreen(),
-    ),
-    GoRoute(
       path: '/login',
       name: 'login',
       builder: (context, state) => const LoginScreen(),
@@ -118,6 +115,11 @@ final router = GoRouter(
       },
     ),
     GoRoute(
+      path: '/pending-approval',
+      name: 'pending-approval',
+      builder: (context, state) => const PendingApprovalScreen(),
+    ),
+    GoRoute(
       path: '/onboarding',
       name: 'onboarding',
       builder: (context, state) => const OnboardingScreen(),
@@ -141,6 +143,16 @@ final router = GoRouter(
       path: '/my-shifts',
       name: 'my-shifts',
       builder: (context, state) => const MyShiftsScreen(),
+    ),
+    GoRoute(
+      path: '/tasks',
+      name: 'tasks',
+      builder: (context, state) => const TaskScreen(),
+    ),
+    GoRoute(
+      path: '/invite',
+      name: 'invite',
+      builder: (context, state) => const InviteScreen(),
     ),
     GoRoute(
       path: '/edit-profile',
