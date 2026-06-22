@@ -41,7 +41,8 @@ class MyApp extends ConsumerWidget {
         cardColor: Colors.grey.shade800,
       ),
       themeMode: themeMode,
-      routerConfig: router,
+      
+      routerConfig: appRouter,   // <-- correct
       debugShowCheckedModeBanner: false,
     );
   }
