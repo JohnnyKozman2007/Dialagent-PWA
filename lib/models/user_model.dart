@@ -75,6 +75,6 @@ class UserModel {
           ? UserPermissions.fromMap(map['permissions'])
           : UserPermissions.staffPermissions(),
       isApproved: map['isApproved'] ?? false,
-    );
+    };
   }
 }
