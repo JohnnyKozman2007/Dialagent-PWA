@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_restaurant_app/models/task_model.dart';
 import 'package:my_restaurant_app/providers/task_provider.dart';
-import 'package:my_restaurant_app/screens/tasks/task_form_screen.dart';
 import 'package:my_restaurant_app/providers/user_provider.dart';
+import 'package:my_restaurant_app/screens/tasks/task_form_screen.dart';
 
 class TaskDetailScreen extends ConsumerWidget {
   final Task task;
@@ -11,7 +11,8 @@ class TaskDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentUser = ref.watch(userProvider);
+    final userAsync = ref.watch(userProvider);
+    final currentUser = userAsync.value;
     final isAssignedToMe = task.assignedTo == currentUser?.uid;
     final isOwnerOrManager = currentUser?.role == 'owner' || currentUser?.role == 'manager';
 
