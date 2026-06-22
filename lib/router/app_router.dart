@@ -21,41 +21,33 @@ import 'package:my_restaurant_app/screens/tasks/task_screen.dart';
 import 'package:my_restaurant_app/screens/tasks/task_form_screen.dart';
 import 'package:my_restaurant_app/screens/tasks/task_detail_screen.dart';
 import 'package:my_restaurant_app/utils/session_storage.dart';
-import 'package:my_restaurant_app/models/task_model.dart'; // for Task type
-import 'package:my_restaurant_app/models/user_model.dart'; // for UserModel type
+import 'package:my_restaurant_app/models/task_model.dart';
+import 'package:my_restaurant_app/models/user_model.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 bool _is2faVerified() {
-  return SessionStorage.getItem('2fa_verified') == 'true';
+  return SessionStorage.isTwoFAVerified();
 }
 
 final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/login',
   redirect: (context, state) async {
-    // Use state.uri.path instead of state.location (which is not available)
     final String path = state.uri.path;
-
-    // Get current Firebase user
     final User? currentUser = FirebaseAuth.instance.currentUser;
 
-    // 1. Not authenticated
     if (currentUser == null) {
-      if (path == '/login' || path == '/signup' || path == '/recovery') {
-        return null;
-      }
+      if (path == '/login' || path == '/signup' || path == '/recovery') return null;
       return '/login';
     }
 
-    // 2. Fetch user document from Firestore
     final DocumentSnapshot doc = await FirebaseFirestore.instance
         .collection('users')
         .doc(currentUser.uid)
         .get();
 
     if (!doc.exists) {
-      // If no user document, they need to complete onboarding
       if (path == '/onboarding') return null;
       return '/onboarding';
     }
@@ -65,25 +57,21 @@ final GoRouter appRouter = GoRouter(
     final bool isApproved = userData['isApproved'] ?? false;
     final bool twoFAEnabled = userData['twoFAEnabled'] ?? false;
 
-    // 3. 2FA check
     if (twoFAEnabled && !_is2faVerified()) {
-      if (path.startsWith('/twofa')) return null; // allow 2FA screens
+      if (path.startsWith('/twofa')) return null;
       return '/twofa-verify';
     }
 
-    // 4. Onboarding check
     if (!onboardingCompleted) {
       if (path == '/onboarding') return null;
       return '/onboarding';
     }
 
-    // 5. Approval check
     if (!isApproved) {
       if (path == '/pending-approval') return null;
       return '/pending-approval';
     }
 
-    // 6. If user is authenticated and all checks passed, redirect away from auth/onboarding screens
     final List<String> authPaths = [
       '/login', '/signup', '/recovery',
       '/twofa-setup', '/twofa-verify',
@@ -93,7 +81,6 @@ final GoRouter appRouter = GoRouter(
       return '/dashboard';
     }
 
-    // Allow navigation to any other screen
     return null;
   },
   routes: [
@@ -106,7 +93,7 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/signup',
       name: 'signup',
-      builder: (context, state) => const SignupScreen(),
+      builder: (context, state) => const SignupScreen(), // <-- CHECK CLASS NAME
     ),
     GoRoute(
       path: '/recovery',
@@ -123,12 +110,12 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/twofa-setup',
       name: 'twofa-setup',
-      builder: (context, state) => const TwofaSetupScreen(),
+      builder: (context, state) => const TwofaSetupScreen(), // <-- CHECK CLASS NAME
     ),
     GoRoute(
       path: '/twofa-verify',
       name: 'twofa-verify',
-      builder: (context, state) => const TwofaVerifyScreen(),
+      builder: (context, state) => const TwofaVerifyScreen(), // <-- CHECK CLASS NAME
     ),
 
     // Onboarding
@@ -154,20 +141,12 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/edit-profile',
       name: 'edit-profile',
-      builder: (context, state) {
-        // Pass the user – you'll need to get it from provider or state
-        // For now, we'll fetch it from Firebase (or better, use a provider)
-        // We'll handle this later; for now just return the screen with a dummy user
-        // Actually we should fix this properly:
-        // You can pass the current user as an extra argument, or use a provider inside the screen.
-        // Let's use a provider in the screen itself, so we don't need to pass it here.
-        return const EditProfileScreen();
-      },
+      builder: (context, state) => const EditProfileScreen(), // <-- now no parameter
     ),
     GoRoute(
       path: '/edit-restaurant',
       name: 'edit-restaurant',
-      builder: (context, state) => const EditRestaurantScreen(),
+      builder: (context, state) => const EditRestaurantScreen(), // <-- now no parameter
     ),
 
     // Admin
@@ -194,7 +173,7 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const MyShiftsScreen(),
     ),
 
-    // Tasks (NEW)
+    // Tasks
     GoRoute(
       path: '/tasks',
       name: 'tasks',
