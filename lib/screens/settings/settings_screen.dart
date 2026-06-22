@@ -120,7 +120,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               // --- Staff Management (Owner Only, Verified) ---
               if (isOwner) ...[
                 _buildSectionHeader('👥 Staff Management'),
-                if (user.isVerified) ...[
+                // ✅ FIX: isVerified → isApproved
+                if (user.isApproved) ...[
                   _buildSettingsTile(
                     icon: Icons.mail_outline,
                     title: 'Invite Staff',
