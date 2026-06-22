@@ -6,7 +6,7 @@ class UserModel {
   final String email;
   final String role;
   final String restaurantName;
-  final String restaurantId; // ✅ ADDED
+  final String restaurantId;
   final String? phone;
   final String? address;
   final String? cuisineType;
@@ -23,7 +23,7 @@ class UserModel {
     required this.email,
     this.role = 'Staff',
     this.restaurantName = '',
-    this.restaurantId = '', // ✅ DEFAULT
+    this.restaurantId = '',
     this.phone,
     this.address,
     this.cuisineType,
@@ -42,7 +42,7 @@ class UserModel {
       'email': email,
       'role': role,
       'restaurantName': restaurantName,
-      'restaurantId': restaurantId, // ✅ ADDED
+      'restaurantId': restaurantId,
       'phone': phone,
       'address': address,
       'cuisineType': cuisineType,
@@ -62,7 +62,7 @@ class UserModel {
       email: map['email'] ?? '',
       role: map['role'] ?? 'Staff',
       restaurantName: map['restaurantName'] ?? '',
-      restaurantId: map['restaurantId'] ?? '', // ✅ READ
+      restaurantId: map['restaurantId'] ?? '',
       phone: map['phone'],
       address: map['address'],
       cuisineType: map['cuisineType'],
@@ -75,6 +75,6 @@ class UserModel {
           ? UserPermissions.fromMap(map['permissions'])
           : UserPermissions.staffPermissions(),
       isApproved: map['isApproved'] ?? false,
-    };
+    );
   }
 }
