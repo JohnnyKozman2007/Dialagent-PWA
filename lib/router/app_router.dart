@@ -2,89 +2,76 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:my_restaurant_app/screens/auth/login_screen.dart';
-import 'package:my_restaurant_app/screens/auth/signup_screen.dart';
-import 'package:my_restaurant_app/screens/auth/recovery_screen.dart';
-import 'package:my_restaurant_app/screens/auth/pending_approval_screen.dart';
-import 'package:my_restaurant_app/screens/twofa/twofa_setup_screen.dart';
-import 'package:my_restaurant_app/screens/twofa/twofa_verify_screen.dart';
-import 'package:my_restaurant_app/screens/onboarding/onboarding_screen.dart';
-import 'package:my_restaurant_app/screens/dashboard/dashboard_screen.dart';
-import 'package:my_restaurant_app/screens/settings/settings_screen.dart';
-import 'package:my_restaurant_app/screens/settings/edit_profile_screen.dart';
-import 'package:my_restaurant_app/screens/settings/edit_restaurant_screen.dart';
-import 'package:my_restaurant_app/screens/admin/permission_screen.dart';
-import 'package:my_restaurant_app/screens/admin/invite_screen.dart';
-import 'package:my_restaurant_app/screens/shifts/shift_screen.dart';
-import 'package:my_restaurant_app/screens/shifts/my_shifts_screen.dart';
-import 'package:my_restaurant_app/screens/tasks/task_screen.dart';
-import 'package:my_restaurant_app/screens/tasks/task_form_screen.dart';
-import 'package:my_restaurant_app/screens/tasks/task_detail_screen.dart';
-import 'package:my_restaurant_app/utils/session_storage.dart';
-import 'package:my_restaurant_app/models/task_model.dart';
-import 'package:my_restaurant_app/models/user_model.dart';
+import '../screens/auth/login_screen.dart';
+import '../screens/auth/signup_screen.dart';
+import '../screens/auth/recovery_screen.dart';
+import '../screens/auth/pending_approval_screen.dart';
+import '../screens/twofa/twofa_setup_screen.dart';
+import '../screens/twofa/twofa_verify_screen.dart';
+import '../screens/onboarding/onboarding_screen.dart';
+import '../screens/dashboard/dashboard_screen.dart';
+import '../screens/settings/settings_screen.dart';
+import '../screens/settings/edit_profile_screen.dart';
+import '../screens/settings/edit_restaurant_screen.dart';
+import '../screens/admin/permission_screen.dart';
+import '../screens/admin/invite_screen.dart';
+import '../screens/shifts/shift_screen.dart';
+import '../screens/shifts/my_shifts_screen.dart';
+import '../screens/tasks/task_screen.dart';
+import '../models/user_model.dart';
+import '../utils/session_storage.dart';
 
-final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
-
-bool _is2faVerified() {
-  return SessionStorage.isTwoFAVerified();
-}
-
-final GoRouter appRouter = GoRouter(
-  navigatorKey: _rootNavigatorKey,
+final router = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) async {
-    final String path = state.uri.path;
-    final User? currentUser = FirebaseAuth.instance.currentUser;
+    final user = FirebaseAuth.instance.currentUser;
 
-    if (currentUser == null) {
-      if (path == '/login' || path == '/signup' || path == '/recovery') return null;
-      return '/login';
+    if (user == null) {
+      final allowedPaths = ['/login', '/signup', '/recovery'];
+      if (!allowedPaths.contains(state.uri.path)) {
+        return '/login';
+      }
+      return null;
     }
 
-    final DocumentSnapshot doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(currentUser.uid)
-        .get();
-
-    if (!doc.exists) {
-      if (path == '/onboarding') return null;
-      return '/onboarding';
+    final flowPaths = ['/twofa', '/onboarding', '/pending-approval', '/verify-2fa'];
+    if (flowPaths.contains(state.uri.path)) {
+      return null;
     }
 
-    final Map<String, dynamic> userData = doc.data() as Map<String, dynamic>;
-    final bool onboardingCompleted = userData['onboardingCompleted'] ?? false;
-    final bool isApproved = userData['isApproved'] ?? false;
-    final bool twoFAEnabled = userData['twoFAEnabled'] ?? false;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get()
+          .timeout(const Duration(seconds: 5));
 
-    if (twoFAEnabled && !_is2faVerified()) {
-      if (path.startsWith('/twofa')) return null;
-      return '/twofa-verify';
+      final has2FA = doc.data()?['twoFAEnabled'] ?? false;
+      final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
+      final isApproved = doc.data()?['isApproved'] ?? false;
+
+      if (!has2FA) {
+        return '/twofa';
+      }
+      if (!hasOnboarding) {
+        return '/onboarding';
+      }
+      if (!isApproved) {
+        return '/pending-approval';
+      }
+
+      if (state.uri.path == '/login' || state.uri.path == '/') {
+        return '/dashboard';
+      }
+      return null;
+    } catch (e) {
+      if (state.uri.path == '/login' || state.uri.path == '/') {
+        return '/onboarding';
+      }
+      return null;
     }
-
-    if (!onboardingCompleted) {
-      if (path == '/onboarding') return null;
-      return '/onboarding';
-    }
-
-    if (!isApproved) {
-      if (path == '/pending-approval') return null;
-      return '/pending-approval';
-    }
-
-    final List<String> authPaths = [
-      '/login', '/signup', '/recovery',
-      '/twofa-setup', '/twofa-verify',
-      '/onboarding', '/pending-approval'
-    ];
-    if (authPaths.contains(path)) {
-      return '/dashboard';
-    }
-
-    return null;
   },
   routes: [
-    // Authentication
     GoRoute(
       path: '/login',
       name: 'login',
@@ -93,7 +80,7 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/signup',
       name: 'signup',
-      builder: (context, state) => const SignupScreen(), // <-- CHECK CLASS NAME
+      builder: (context, state) => const SignUpScreen(), // ✅ Correct
     ),
     GoRoute(
       path: '/recovery',
@@ -101,67 +88,38 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => const RecoveryScreen(),
     ),
     GoRoute(
+      path: '/twofa',
+      name: 'twofa',
+      builder: (context, state) => const TwoFASetupScreen(), // ✅ Correct
+    ),
+    GoRoute(
+      path: '/verify-2fa',
+      name: 'verify-2fa',
+      builder: (context, state) {
+        final email = state.extra as String? ?? '';
+        return TwoFAVerifyScreen(email: email); // ✅ Correct
+      },
+    ),
+    GoRoute(
       path: '/pending-approval',
       name: 'pending-approval',
       builder: (context, state) => const PendingApprovalScreen(),
     ),
-
-    // 2FA
-    GoRoute(
-      path: '/twofa-setup',
-      name: 'twofa-setup',
-      builder: (context, state) => const TwofaSetupScreen(), // <-- CHECK CLASS NAME
-    ),
-    GoRoute(
-      path: '/twofa-verify',
-      name: 'twofa-verify',
-      builder: (context, state) => const TwofaVerifyScreen(), // <-- CHECK CLASS NAME
-    ),
-
-    // Onboarding
     GoRoute(
       path: '/onboarding',
       name: 'onboarding',
       builder: (context, state) => const OnboardingScreen(),
     ),
-
-    // Dashboard
     GoRoute(
       path: '/dashboard',
       name: 'dashboard',
       builder: (context, state) => const DashboardScreen(),
     ),
-
-    // Settings
     GoRoute(
       path: '/settings',
       name: 'settings',
       builder: (context, state) => const SettingsScreen(),
     ),
-    GoRoute(
-      path: '/edit-profile',
-      name: 'edit-profile',
-      builder: (context, state) => const EditProfileScreen(), // <-- now no parameter
-    ),
-    GoRoute(
-      path: '/edit-restaurant',
-      name: 'edit-restaurant',
-      builder: (context, state) => const EditRestaurantScreen(), // <-- now no parameter
-    ),
-
-    // Admin
-    GoRoute(
-      path: '/permissions',
-      name: 'permissions',
-      builder: (context, state) => const PermissionScreen(),
-    ),
-    GoRoute(
-      path: '/invite',
-      name: 'invite',
-      builder: (context, state) => const InviteScreen(),
-    ),
-
-    // Shifts
     GoRoute(
       path: '/shifts',
       name: 'shifts',
@@ -172,27 +130,38 @@ final GoRouter appRouter = GoRouter(
       name: 'my-shifts',
       builder: (context, state) => const MyShiftsScreen(),
     ),
-
-    // Tasks
     GoRoute(
       path: '/tasks',
       name: 'tasks',
       builder: (context, state) => const TaskScreen(),
     ),
     GoRoute(
-      path: '/task-form',
-      name: 'task-form',
+      path: '/invite',
+      name: 'invite',
+      builder: (context, state) => const InviteScreen(),
+    ),
+    GoRoute(
+      path: '/edit-profile',
+      name: 'edit-profile',
       builder: (context, state) {
-        final Task? task = state.extra as Task?;
-        return TaskFormScreen(initialTask: task);
+        final user = state.extra as UserModel?;
+        return EditProfileScreen(user: user ?? UserModel.fromMap('', {}));
       },
     ),
     GoRoute(
-      path: '/task-detail',
-      name: 'task-detail',
+      path: '/edit-restaurant',
+      name: 'edit-restaurant',
       builder: (context, state) {
-        final Task task = state.extra as Task;
-        return TaskDetailScreen(task: task);
+        final user = state.extra as UserModel?;
+        return EditRestaurantScreen(user: user ?? UserModel.fromMap('', {}));
+      },
+    ),
+    GoRoute(
+      path: '/permissions',
+      name: 'permissions',
+      builder: (context, state) {
+        final user = state.extra as UserModel?;
+        return PermissionScreen(user: user);
       },
     ),
   ],
