@@ -244,7 +244,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // --- Section Header ---
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.Only(top: 16.0, bottom: 8.0),
+      padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
       child: Text(
         title,
         style: TextStyle(
