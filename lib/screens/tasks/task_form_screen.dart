@@ -63,7 +63,8 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final user = ref.read(userProvider);
+    final userAsync = ref.read(userProvider);
+    final user = userAsync.value;
     if (user == null) return;
 
     final task = Task(
