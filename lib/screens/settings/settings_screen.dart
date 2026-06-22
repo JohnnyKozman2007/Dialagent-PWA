@@ -32,7 +32,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/dashboard'),
+          onPressed: () => context.pop(), // ✅ FIXED: go back to previous screen
         ),
       ),
       body: userAsync.when(
@@ -48,7 +48,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
           final isOwner = user.role == 'Owner';
           final isManager = user.role == 'Manager' || isOwner;
-          final perms = user.permissions;
 
           return ListView(
             padding: const EdgeInsets.all(16.0),
@@ -63,7 +62,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 icon: Icons.person,
                 title: 'Edit Profile',
                 subtitle: 'Name, email, phone',
-                onTap: () => context.go('/edit-profile', extra: user),
+                onTap: () => context.push('/edit-profile', extra: user),
                 color: Colors.green,
               ),
               _buildSettingsTile(
@@ -82,7 +81,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   icon: Icons.store,
                   title: user.restaurantName.isNotEmpty ? user.restaurantName : 'Set Restaurant Name',
                   subtitle: user.address ?? 'No address set',
-                  onTap: isOwner ? () => context.go('/edit-restaurant', extra: user) : null,
+                  onTap: isOwner ? () => context.push('/edit-restaurant', extra: user) : null,
                   color: Colors.blue,
                   isEditable: isOwner,
                 ),
@@ -120,20 +119,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               // --- Staff Management (Owner Only, Verified) ---
               if (isOwner) ...[
                 _buildSectionHeader('👥 Staff Management'),
-                // ✅ FIX: isVerified → isApproved
                 if (user.isApproved) ...[
                   _buildSettingsTile(
                     icon: Icons.mail_outline,
                     title: 'Invite Staff',
                     subtitle: 'Send email invitations to new staff or managers',
-                    onTap: () => context.go('/invite'),
+                    onTap: () => context.push('/invite'), // ✅ FIXED: push keeps Settings in stack
                     color: Colors.teal,
                   ),
                   _buildSettingsTile(
                     icon: Icons.security,
                     title: 'Manage Permissions',
                     subtitle: 'Assign granular permissions to staff',
-                    onTap: () => context.go('/permissions', extra: user),
+                    onTap: () => context.push('/permissions', extra: user), // ✅ FIXED: push keeps Settings in stack
                     color: Colors.deepPurple,
                   ),
                 ] else ...[
@@ -246,7 +244,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // --- Section Header ---
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
+      padding: const EdgeInsets.Only(top: 16.0, bottom: 8.0),
       child: Text(
         title,
         style: TextStyle(
