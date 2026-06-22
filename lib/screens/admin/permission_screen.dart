@@ -91,7 +91,7 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/settings'),
+          onPressed: () => context.pop(),
         ),
       ),
       body: _isLoading
