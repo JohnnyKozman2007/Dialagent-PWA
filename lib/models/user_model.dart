@@ -6,6 +6,7 @@ class UserModel {
   final String email;
   final String role;
   final String restaurantName;
+  final String restaurantId; // ✅ ADDED
   final String? phone;
   final String? address;
   final String? cuisineType;
@@ -15,13 +16,14 @@ class UserModel {
   final String? twoFASecret;
   final DateTime createdAt;
   final UserPermissions permissions;
-  final bool isVerified; // 🔥 NEW FIELD
+  final bool isApproved;
 
   UserModel({
     required this.uid,
     required this.email,
     this.role = 'Staff',
     this.restaurantName = '',
+    this.restaurantId = '', // ✅ DEFAULT
     this.phone,
     this.address,
     this.cuisineType,
@@ -31,7 +33,7 @@ class UserModel {
     this.twoFASecret,
     required this.createdAt,
     this.permissions = const UserPermissions(),
-    this.isVerified = false, // 🔥 DEFAULT TO FALSE
+    this.isApproved = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -40,6 +42,7 @@ class UserModel {
       'email': email,
       'role': role,
       'restaurantName': restaurantName,
+      'restaurantId': restaurantId, // ✅ ADDED
       'phone': phone,
       'address': address,
       'cuisineType': cuisineType,
@@ -49,7 +52,7 @@ class UserModel {
       'twoFASecret': twoFASecret,
       'createdAt': createdAt,
       'permissions': permissions.toMap(),
-      'isVerified': isVerified, // 🔥 SAVE IT
+      'isApproved': isApproved,
     };
   }
 
@@ -59,6 +62,7 @@ class UserModel {
       email: map['email'] ?? '',
       role: map['role'] ?? 'Staff',
       restaurantName: map['restaurantName'] ?? '',
+      restaurantId: map['restaurantId'] ?? '', // ✅ READ
       phone: map['phone'],
       address: map['address'],
       cuisineType: map['cuisineType'],
@@ -70,7 +74,7 @@ class UserModel {
       permissions: map['permissions'] != null
           ? UserPermissions.fromMap(map['permissions'])
           : UserPermissions.staffPermissions(),
-      isVerified: map['isVerified'] ?? false, // 🔥 READ IT
+      isApproved: map['isApproved'] ?? false,
     );
   }
 }
