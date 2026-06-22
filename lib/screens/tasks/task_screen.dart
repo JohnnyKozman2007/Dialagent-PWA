@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // for Clipboard
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_restaurant_app/models/task_model.dart';
 import 'package:my_restaurant_app/providers/task_provider.dart';
+import 'package:my_restaurant_app/providers/user_provider.dart';
 import 'package:my_restaurant_app/screens/tasks/task_form_screen.dart';
 import 'package:my_restaurant_app/screens/tasks/task_detail_screen.dart';
-import 'package:my_restaurant_app/providers/user_provider.dart';
 
 class TaskScreen extends ConsumerStatefulWidget {
   const TaskScreen({Key? key}) : super(key: key);
@@ -14,13 +15,14 @@ class TaskScreen extends ConsumerStatefulWidget {
 }
 
 class _TaskScreenState extends ConsumerState<TaskScreen> {
-  String _filterStatus = 'all'; // 'all', 'pending', 'in-progress', 'completed'
-  String _filterAssignee = 'all'; // 'all', 'mine'
+  String _filterStatus = 'all';
+  String _filterAssignee = 'all';
 
   @override
   Widget build(BuildContext context) {
     final tasksAsync = ref.watch(taskListProvider);
-    final currentUser = ref.watch(userProvider);
+    final userAsync = ref.watch(userProvider);
+    final currentUser = userAsync.value;
 
     return Scaffold(
       appBar: AppBar(
@@ -49,7 +51,6 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
       body: tasksAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) {
-          // Check if it's a Firestore index error (code 9)
           if (error.toString().contains('failed-precondition')) {
             return _buildIndexError(context, error);
           }
@@ -105,7 +106,6 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
   }
 
   Widget _buildIndexError(BuildContext context, Object error) {
-    // Extract the index creation link from error message
     final errorString = error.toString();
     final linkStart = errorString.indexOf('https://');
     final linkEnd = errorString.indexOf(' ', linkStart);
