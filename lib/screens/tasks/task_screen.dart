@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:my_restaurant_app/models/task_model.dart';
-import 'package:my_restaurant_app/providers/task_provider.dart';
-import 'package:my_restaurant_app/providers/user_provider.dart';
-import 'package:my_restaurant_app/screens/tasks/task_form_screen.dart';
-import 'package:my_restaurant_app/screens/tasks/task_detail_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../models/task_model.dart';
+import '../../providers/task_provider.dart';
+import '../../providers/user_provider.dart';
+import 'task_form_screen.dart';
+import 'task_detail_screen.dart';
 
 class TaskScreen extends ConsumerStatefulWidget {
   const TaskScreen({Key? key}) : super(key: key);
@@ -18,9 +19,23 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
   String _filterStatus = 'all';
   String _filterAssignee = 'all';
 
+  Future<void> _markTaskDone(Task task) async {
+    await FirebaseFirestore.instance
+        .collection('tasks')
+        .doc(task.id)
+        .update({
+      'status': 'completed',
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✅ Task marked as done!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // ✅ FIX: use tasksStreamProvider
     final tasksAsync = ref.watch(tasksStreamProvider);
     final userAsync = ref.watch(userProvider);
     final currentUser = userAsync.value;
@@ -77,9 +92,19 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
                 child: ListTile(
                   title: Text(task.title),
                   subtitle: Text('Status: ${task.status}  |  ${task.assignedToName ?? 'Unassigned'}'),
-                  trailing: task.status == 'completed'
-                      ? const Icon(Icons.check_circle, color: Colors.green)
-                      : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (task.status != 'completed' && task.assignedTo == currentUser?.uid)
+                        IconButton(
+                          icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                          onPressed: () => _markTaskDone(task),
+                          tooltip: 'Mark as Done',
+                        ),
+                      if (task.status == 'completed')
+                        const Icon(Icons.check_circle, color: Colors.green),
+                    ],
+                  ),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -94,15 +119,17 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const TaskFormScreen()),
-          );
-        },
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: (currentUser?.role == 'Owner' || currentUser?.role == 'Manager')
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const TaskFormScreen()),
+                );
+              },
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 
