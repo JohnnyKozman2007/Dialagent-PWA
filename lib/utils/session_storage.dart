@@ -16,4 +16,13 @@ class SessionStorage {
   static void clear() {
     html.window.sessionStorage.clear();
   }
+
+  // New methods used by login and 2FA screens
+  static void setTwoFAVerified(bool verified) {
+    setItem('2fa_verified', verified ? 'true' : 'false');
+  }
+
+  static bool isTwoFAVerified() {
+    return getItem('2fa_verified') == 'true';
+  }
 }
