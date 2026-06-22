@@ -312,7 +312,7 @@ class DashboardScreen extends ConsumerWidget {
                           ),
                           onTap: () {
                             if (card.route != null) {
-                              context.go(card.route!);
+                              context.push(card.route!); // ✅ preserves Dashboard in stack
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
