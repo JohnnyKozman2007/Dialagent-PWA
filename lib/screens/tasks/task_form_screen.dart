@@ -1,12 +1,11 @@
-// This is a fix for the `restaurantId` usage.
-// If you don't use this file, you can delete it entirely.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/user_model.dart';
+import '../../providers/user_provider.dart'; // ✅ import added
 
 class TaskFormScreen extends ConsumerStatefulWidget {
-  const TaskFormScreen({super.key});
+  const TaskFormScreen({super.key}); // ✅ no initialTask parameter
 
   @override
   ConsumerState<TaskFormScreen> createState() => _TaskFormScreenState();
@@ -22,7 +21,6 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
     final user = ref.watch(userProvider).valueOrNull;
     if (user == null) return const SizedBox.shrink();
 
-    // ✅ Now `user.restaurantId` exists
     return Scaffold(
       appBar: AppBar(title: const Text('New Task')),
       body: Padding(
@@ -47,7 +45,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
                     await FirebaseFirestore.instance.collection('tasks').add({
                       'title': _titleController.text,
                       'description': _descController.text,
-                      'restaurantId': user.restaurantId, // ✅ Fixed
+                      'restaurantId': user.restaurantId,
                       'assignedTo': null,
                       'assignedToName': '',
                       'status': 'pending',
