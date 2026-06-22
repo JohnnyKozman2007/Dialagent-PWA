@@ -1,18 +1,19 @@
 import 'dart:html' as html;
 
 class SessionStorage {
-  static const String _twoFAVerifiedKey = 'twoFAVerified';
-
-  static bool isTwoFAVerified() {
-    final value = html.window.sessionStorage[_twoFAVerifiedKey];
-    return value == 'true';
+  static void setItem(String key, String value) {
+    html.window.sessionStorage[key] = value;
   }
 
-  static void setTwoFAVerified(bool value) {
-    html.window.sessionStorage[_twoFAVerifiedKey] = value.toString();
+  static String? getItem(String key) {
+    return html.window.sessionStorage[key];
+  }
+
+  static void removeItem(String key) {
+    html.window.sessionStorage.remove(key);
   }
 
   static void clear() {
-    html.window.sessionStorage.remove(_twoFAVerifiedKey);
+    html.window.sessionStorage.clear();
   }
 }
