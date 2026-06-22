@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // for Clipboard
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_restaurant_app/models/task_model.dart';
 import 'package:my_restaurant_app/providers/task_provider.dart';
@@ -20,7 +20,8 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tasksAsync = ref.watch(taskListProvider);
+    // ✅ FIX: use tasksStreamProvider
+    final tasksAsync = ref.watch(tasksStreamProvider);
     final userAsync = ref.watch(userProvider);
     final currentUser = userAsync.value;
 
