@@ -1,17 +1,19 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
+import '../../providers/user_provider.dart';
 import '../twofa/twofa_setup_screen.dart';
 
-class SignUpScreen extends StatefulWidget {
+class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
 
   @override
-  State<SignUpScreen> createState() => _SignUpScreenState();
+  ConsumerState<SignUpScreen> createState() => _SignUpScreenState();
 }
 
-class _SignUpScreenState extends State<SignUpScreen> {
+class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
@@ -65,11 +67,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
             'restaurantName': '',
             'phone': '',
             'address': '',
-            'onboardingCompleted': false, // Owner goes to onboarding
+            'onboardingCompleted': false,
             'twoFAEnabled': false,
-            'isApproved': false, // ❌ Owner needs manual approval
+            'isApproved': false,
             'createdAt': FieldValue.serverTimestamp(),
           });
+
+          // Invalidate providers so the dashboard fetches fresh data
+          ref.invalidate(userProvider);
+          ref.invalidate(userRoleProvider);
 
           context.go('/twofa');
           setState(() => isLoading = false);
@@ -103,17 +109,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
         'email': email,
         'role': role,
         'restaurantId': restaurantId.isNotEmpty ? restaurantId : userCredential.user!.uid,
-        'restaurantName': '',   // No onboarding needed
-        'phone': '',            // No onboarding needed
-        'address': '',          // No onboarding needed
-        'onboardingCompleted': true, // 🔥 SKIP ONBOARDING
+        'restaurantName': '',
+        'phone': '',
+        'address': '',
+        'onboardingCompleted': true,
         'twoFAEnabled': false,
-        'isApproved': true,     // 🔥 AUTO-APPROVED because they were invited
+        'isApproved': true,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
       // Mark invite as used
       await inviteDoc.reference.update({'used': true});
+
+      // 🔥 Invalidate providers so the dashboard fetches the correct role
+      ref.invalidate(userProvider);
+      ref.invalidate(userRoleProvider);
 
       // Go to 2FA setup (then directly to dashboard)
       context.go('/twofa');
