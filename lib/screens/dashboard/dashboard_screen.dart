@@ -136,10 +136,10 @@ class AgenticEngine {
             route: '/tasks',
           ),
           DashboardCard(
-            title: '✅ Tasks',
-            subtitle: '3 tasks pending',
+            title: '📋 My Tasks',         // ✅ Renamed and kept only one
+            subtitle: 'View and claim tasks',
             icon: Icons.task,
-            route: null,
+            route: '/tasks',
           ),
           DashboardCard(
             title: '🍽️ Assigned Tables',
