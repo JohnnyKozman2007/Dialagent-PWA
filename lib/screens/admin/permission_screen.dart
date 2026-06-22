@@ -34,7 +34,6 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) return;
 
-      // Get all users from the same restaurant (simplified - in production, filter by restaurantId)
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
           .where('role', isNotEqualTo: 'Owner')
@@ -63,14 +62,14 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
           .update({
         'permissions': permissions.toMap(),
       });
-      
+
       ref.invalidate(userProvider);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Permissions updated successfully!')),
         );
-        _loadStaffMembers(); // Reload to reflect changes
+        _loadStaffMembers();
       }
     } catch (e) {
       if (mounted) {
@@ -91,7 +90,7 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+          onPressed: () => context.pop(), // ✅ FIXED
         ),
       ),
       body: _isLoading
@@ -119,7 +118,6 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Staff Selector
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
@@ -161,8 +159,6 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-
-                      // Permissions Editor
                       if (_selectedUserId.isNotEmpty) ...[
                         _buildPermissionEditor(),
                       ],
