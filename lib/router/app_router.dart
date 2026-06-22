@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:my_restaurant_app/screens/auth/login_screen.dart';
 import 'package:my_restaurant_app/screens/auth/signup_screen.dart';
 import 'package:my_restaurant_app/screens/auth/recovery_screen.dart';
@@ -15,27 +17,16 @@ import 'package:my_restaurant_app/screens/admin/permission_screen.dart';
 import 'package:my_restaurant_app/screens/admin/invite_screen.dart';
 import 'package:my_restaurant_app/screens/shifts/shift_screen.dart';
 import 'package:my_restaurant_app/screens/shifts/my_shifts_screen.dart';
-import 'package:my_restaurant_app/screens/tasks/task_screen.dart';          // NEW
-import 'package:my_restaurant_app/screens/tasks/task_form_screen.dart';     // NEW
-import 'package:my_restaurant_app/screens/tasks/task_detail_screen.dart';   // NEW
+import 'package:my_restaurant_app/screens/tasks/task_screen.dart';
+import 'package:my_restaurant_app/screens/tasks/task_form_screen.dart';
+import 'package:my_restaurant_app/screens/tasks/task_detail_screen.dart';
 import 'package:my_restaurant_app/utils/session_storage.dart';
-import 'package:my_restaurant_app/providers/user_provider.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:my_restaurant_app/models/task_model.dart'; // for Task type
+import 'package:my_restaurant_app/models/user_model.dart'; // for UserModel type
 
-// Global key for navigator
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
-// Helper to check if user is authenticated
-bool _isAuthenticated(GoRouterState state) {
-  // You should check your auth state (e.g., from provider). 
-  // We'll use a simple check: if state.extra contains user, or use a provider.
-  // For simplicity, we'll rely on the redirect logic below using providers.
-  // We'll check inside the redirect.
-  return false; // Placeholder, will be overridden in redirect
-}
-
-// Helper to check if 2FA session is verified
-bool _is2faVerified(GoRouterState state) {
+bool _is2faVerified() {
   return SessionStorage.getItem('2fa_verified') == 'true';
 }
 
@@ -43,61 +34,66 @@ final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/login',
   redirect: (context, state) async {
-    // Get the user from provider (assuming you have a userProvider)
-    final user = ref.read(userProvider); // You need to pass ref, but go_router doesn't have ref directly.
-    // Workaround: use a global ref or pass through context. Better: use a ProviderContainer.
-    // I'll assume you have a global container or use Riverpod's provider observer.
-    // For simplicity, I'll show the logic without actual ref; you can adapt.
-    // Here we'll use a dummy user for demonstration; you must replace with actual retrieval.
-    // Let's assume you have a method to get current user from Firebase Auth.
-    // We'll use a simplified version.
-    
-    final auth = FirebaseAuth.instance;
-    final currentUser = auth.currentUser;
+    // Use state.uri.path instead of state.location (which is not available)
+    final String path = state.uri.path;
+
+    // Get current Firebase user
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+
+    // 1. Not authenticated
     if (currentUser == null) {
-      // Not logged in
-      return state.location == '/login' || state.location == '/signup' || state.location == '/recovery'
-          ? null
-          : '/login';
+      if (path == '/login' || path == '/signup' || path == '/recovery') {
+        return null;
+      }
+      return '/login';
     }
 
-    // Fetch user document from Firestore
-    final doc = await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).get();
+    // 2. Fetch user document from Firestore
+    final DocumentSnapshot doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser.uid)
+        .get();
+
     if (!doc.exists) {
-      // If user document doesn't exist, go to onboarding? Actually signup creates it.
+      // If no user document, they need to complete onboarding
+      if (path == '/onboarding') return null;
       return '/onboarding';
     }
-    final userData = doc.data()!;
-    final onboardingCompleted = userData['onboardingCompleted'] ?? false;
-    final isApproved = userData['isApproved'] ?? false;
-    final twoFAEnabled = userData['twoFAEnabled'] ?? false;
 
-    // 2FA check
-    if (twoFAEnabled && !_is2faVerified(state)) {
-      // If trying to access 2FA verify or setup screens, allow
-      if (state.location.startsWith('/twofa')) return null;
+    final Map<String, dynamic> userData = doc.data() as Map<String, dynamic>;
+    final bool onboardingCompleted = userData['onboardingCompleted'] ?? false;
+    final bool isApproved = userData['isApproved'] ?? false;
+    final bool twoFAEnabled = userData['twoFAEnabled'] ?? false;
+
+    // 3. 2FA check
+    if (twoFAEnabled && !_is2faVerified()) {
+      if (path.startsWith('/twofa')) return null; // allow 2FA screens
       return '/twofa-verify';
     }
 
-    // Onboarding check
+    // 4. Onboarding check
     if (!onboardingCompleted) {
-      if (state.location == '/onboarding') return null;
+      if (path == '/onboarding') return null;
       return '/onboarding';
     }
 
-    // Approval check
+    // 5. Approval check
     if (!isApproved) {
-      if (state.location == '/pending-approval') return null;
+      if (path == '/pending-approval') return null;
       return '/pending-approval';
     }
 
-    // If all good, allow navigation. But if they are on auth/2fa/onboarding pages, redirect to dashboard
-    final authPaths = ['/login', '/signup', '/recovery', '/twofa-setup', '/twofa-verify', '/onboarding', '/pending-approval'];
-    if (authPaths.contains(state.location)) {
+    // 6. If user is authenticated and all checks passed, redirect away from auth/onboarding screens
+    final List<String> authPaths = [
+      '/login', '/signup', '/recovery',
+      '/twofa-setup', '/twofa-verify',
+      '/onboarding', '/pending-approval'
+    ];
+    if (authPaths.contains(path)) {
       return '/dashboard';
     }
 
-    // For any other path, allow
+    // Allow navigation to any other screen
     return null;
   },
   routes: [
@@ -158,7 +154,15 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/edit-profile',
       name: 'edit-profile',
-      builder: (context, state) => const EditProfileScreen(),
+      builder: (context, state) {
+        // Pass the user – you'll need to get it from provider or state
+        // For now, we'll fetch it from Firebase (or better, use a provider)
+        // We'll handle this later; for now just return the screen with a dummy user
+        // Actually we should fix this properly:
+        // You can pass the current user as an extra argument, or use a provider inside the screen.
+        // Let's use a provider in the screen itself, so we don't need to pass it here.
+        return const EditProfileScreen();
+      },
     ),
     GoRoute(
       path: '/edit-restaurant',
@@ -200,7 +204,7 @@ final GoRouter appRouter = GoRouter(
       path: '/task-form',
       name: 'task-form',
       builder: (context, state) {
-        final task = state.extra as Task?; // Task from import
+        final Task? task = state.extra as Task?;
         return TaskFormScreen(initialTask: task);
       },
     ),
@@ -208,7 +212,7 @@ final GoRouter appRouter = GoRouter(
       path: '/task-detail',
       name: 'task-detail',
       builder: (context, state) {
-        final task = state.extra as Task; // Task from import
+        final Task task = state.extra as Task;
         return TaskDetailScreen(task: task);
       },
     ),
