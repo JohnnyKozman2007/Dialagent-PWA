@@ -52,7 +52,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             .get();
 
         if (usersSnapshot.docs.isEmpty) {
-          // ✅ First user ever → Owner (needs onboarding)
+          // ✅ First user ever → Owner (needs manual approval)
           final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
             email: email,
             password: passwordController.text.trim(),
@@ -67,7 +67,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             'address': '',
             'onboardingCompleted': false, // Owner goes to onboarding
             'twoFAEnabled': false,
-            'isApproved': false,
+            'isApproved': false, // ❌ Owner needs manual approval
             'createdAt': FieldValue.serverTimestamp(),
           });
 
@@ -87,7 +87,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         }
       }
 
-      // ✅ Invite exists → Staff or Manager (skip onboarding)
+      // ✅ Invite exists → Staff or Manager (auto-approved)
       final inviteDoc = inviteQuery.docs.first;
       final role = inviteDoc.data()['role'] ?? 'Staff';
       final restaurantId = inviteDoc.data()['restaurantId'] ?? '';
@@ -98,7 +98,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         password: passwordController.text.trim(),
       );
 
-      // 🔥 SAVE USER WITH SKIPPED ONBOARDING
+      // 🔥 SAVE USER WITH SKIPPED ONBOARDING AND AUTO-APPROVED
       await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
         'email': email,
         'role': role,
@@ -108,7 +108,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         'address': '',          // No onboarding needed
         'onboardingCompleted': true, // 🔥 SKIP ONBOARDING
         'twoFAEnabled': false,
-        'isApproved': false,    // Still needs approval (if your system uses this)
+        'isApproved': true,     // 🔥 AUTO-APPROVED because they were invited
         'createdAt': FieldValue.serverTimestamp(),
       });
 
