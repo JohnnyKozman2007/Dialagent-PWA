@@ -36,27 +36,86 @@ class _SignUpScreenState extends State<SignUpScreen> {
     try {
       final email = emailController.text.trim().toLowerCase();
 
-      // 1️⃣ CREATE THE USER (no invite check)
+      // 🔍 Check for an invite
+      final inviteQuery = await FirebaseFirestore.instance
+          .collection('invites')
+          .where('email', isEqualTo: email)
+          .where('used', isEqualTo: false)
+          .limit(1)
+          .get();
+
+      // If NO invite, check if it's the first user (Owner)
+      if (inviteQuery.docs.isEmpty) {
+        final usersSnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .limit(1)
+            .get();
+
+        if (usersSnapshot.docs.isEmpty) {
+          // ✅ First user ever → Owner (needs onboarding)
+          final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: email,
+            password: passwordController.text.trim(),
+          );
+
+          await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+            'email': email,
+            'role': 'Owner',
+            'restaurantId': userCredential.user!.uid,
+            'restaurantName': '',
+            'phone': '',
+            'address': '',
+            'onboardingCompleted': false, // Owner goes to onboarding
+            'twoFAEnabled': false,
+            'isApproved': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+
+          context.go('/twofa');
+          setState(() => isLoading = false);
+          return;
+        } else {
+          // ❌ Users exist but no invite
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('You are not authorized to create an account. Please contact the restaurant owner.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          setState(() => isLoading = false);
+          return;
+        }
+      }
+
+      // ✅ Invite exists → Staff or Manager (skip onboarding)
+      final inviteDoc = inviteQuery.docs.first;
+      final role = inviteDoc.data()['role'] ?? 'Staff';
+      final restaurantId = inviteDoc.data()['restaurantId'] ?? '';
+
+      // Create the user
       final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: passwordController.text.trim(),
       );
 
-      // 2️⃣ SAVE TO FIRESTORE — isApproved defaults to FALSE
+      // 🔥 SAVE USER WITH SKIPPED ONBOARDING
       await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
         'email': email,
-        'role': 'Owner', // default role
-        'restaurantId': userCredential.user!.uid,
-        'restaurantName': '',
-        'phone': '',
-        'address': '',
-        'onboardingCompleted': false,
+        'role': role,
+        'restaurantId': restaurantId.isNotEmpty ? restaurantId : userCredential.user!.uid,
+        'restaurantName': '',   // No onboarding needed
+        'phone': '',            // No onboarding needed
+        'address': '',          // No onboarding needed
+        'onboardingCompleted': true, // 🔥 SKIP ONBOARDING
         'twoFAEnabled': false,
-        'isApproved': false, // 🔥 KEY FIELD — YOU CONTROL THIS
+        'isApproved': false,    // Still needs approval (if your system uses this)
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // 3️⃣ GO TO 2FA SETUP
+      // Mark invite as used
+      await inviteDoc.reference.update({'used': true});
+
+      // Go to 2FA setup (then directly to dashboard)
       context.go('/twofa');
     } on FirebaseAuthException catch (e) {
       String message = 'Sign-up failed';
