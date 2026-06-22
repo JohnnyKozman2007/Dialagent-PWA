@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
-import 'router/app_router.dart';
+import 'router/app_router.dart';  // ensure this import exists
 import 'providers/theme_provider.dart';
 
 void main() async {
@@ -41,8 +41,7 @@ class MyApp extends ConsumerWidget {
         cardColor: Colors.grey.shade800,
       ),
       themeMode: themeMode,
-      
-      routerConfig: appRouter,   // <-- correct
+      routerConfig: router,   // <-- changed from appRouter to router
       debugShowCheckedModeBanner: false,
     );
   }
