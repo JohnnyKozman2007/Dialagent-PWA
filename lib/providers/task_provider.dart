@@ -4,16 +4,15 @@ import '../models/task_model.dart';
 import '../models/user_model.dart';
 import 'user_provider.dart';
 
-final userRestaurantIdProvider = Provider<String?>((ref) {
-  final user = ref.watch(userProvider).valueOrNull;
-  return user?.restaurantId;
-});
-
 final tasksStreamProvider = StreamProvider<List<Task>>((ref) {
-  final restaurantId = ref.watch(userRestaurantIdProvider);
+  final user = ref.watch(userProvider).valueOrNull;
+  final restaurantId = user?.restaurantId;
+
   if (restaurantId == null || restaurantId.isEmpty) {
     return Stream.value([]);
   }
+
+  // 🔥 Now that the index is deployed, we use orderBy for server-side sorting
   return FirebaseFirestore.instance
       .collection('tasks')
       .where('restaurantId', isEqualTo: restaurantId)
