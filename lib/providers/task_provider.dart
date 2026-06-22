@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_restaurant_app/models/task_model.dart';
 import 'package:my_restaurant_app/services/calendar_sync_service.dart';
+import 'package:my_restaurant_app/providers/user_provider.dart';
 
 // Provider to get the current restaurantId from user provider
 final restaurantIdProvider = Provider<String?>((ref) {
