@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp; // keep as fallback if still referenced, but parse dynamically
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 class Task extends Equatable {
@@ -28,28 +28,20 @@ class Task extends Equatable {
     this.calendarEventId,
   });
 
-  factory Task.fromMap(String id, Map<String, dynamic> map) {
-    DateTime parseDate(dynamic val) {
-      if (val is Timestamp) return val.toDate();
-      if (val is String) return DateTime.parse(val);
-      if (val is DateTime) return val;
-      return DateTime.now();
-    }
-
+  factory Task.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
     return Task(
-      id: id,
-      title: map['title'] ?? '',
-      description: map['description'] ?? '',
-      restaurantId: map['restaurantId'] ?? map['restaurant_id'] ?? '',
-      assignedTo: map['assignedTo'] ?? map['assigned_to'],
-      assignedToName: map['assignedToName'] ?? map['assigned_to_name'],
-      status: map['status'] ?? 'pending',
-      createdAt: parseDate(map['createdAt'] ?? map['created_at']),
-      dueDate: map['dueDate'] != null || map['due_date'] != null
-          ? parseDate(map['dueDate'] ?? map['due_date'])
-          : null,
-      syncedToCalendar: map['syncedToCalendar'] ?? map['synced_to_calendar'] ?? false,
-      calendarEventId: map['calendarEventId'] ?? map['calendar_event_id'],
+      id: doc.id,
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      restaurantId: data['restaurantId'] ?? '',
+      assignedTo: data['assignedTo'],
+      assignedToName: data['assignedToName'],
+      status: data['status'] ?? 'pending',
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      dueDate: data['dueDate'] != null ? (data['dueDate'] as Timestamp).toDate() : null,
+      syncedToCalendar: data['syncedToCalendar'] ?? false,
+      calendarEventId: data['calendarEventId'],
     );
   }
 
@@ -61,25 +53,10 @@ class Task extends Equatable {
       'assignedTo': assignedTo,
       'assignedToName': assignedToName,
       'status': status,
-      'createdAt': createdAt,
-      'dueDate': dueDate,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'dueDate': dueDate != null ? Timestamp.fromDate(dueDate!) : null,
       'syncedToCalendar': syncedToCalendar,
       'calendarEventId': calendarEventId,
-    };
-  }
-
-  Map<String, dynamic> toSupabaseMap() {
-    return {
-      'title': title,
-      'description': description,
-      'restaurant_id': restaurantId,
-      'assigned_to': assignedTo,
-      'assigned_to_name': assignedToName,
-      'status': status,
-      'created_at': createdAt.toIso8601String(),
-      'due_date': dueDate?.toIso8601String(),
-      'synced_to_calendar': syncedToCalendar,
-      'calendar_event_id': calendarEventId,
     };
   }
 

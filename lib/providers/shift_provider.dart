@@ -1,28 +1,28 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/shift_model.dart';
 
 final shiftsProvider = StreamProvider<List<ShiftModel>>((ref) {
-  return Supabase.instance.client
-      .from('shifts')
-      .stream(primaryKey: ['id'])
-      .order('start_time')
-      .map((data) {
-    return data
-        .map((map) => ShiftModel.fromMap(map['id'] as String, map))
+  return FirebaseFirestore.instance
+      .collection('shifts')
+      .orderBy('startTime')
+      .snapshots()
+      .map((snapshot) {
+    return snapshot.docs
+        .map((doc) => ShiftModel.fromMap(doc.id, doc.data()))
         .toList();
   });
 });
 
 final availableShiftsProvider = StreamProvider<List<ShiftModel>>((ref) {
-  return Supabase.instance.client
-      .from('shifts')
-      .stream(primaryKey: ['id'])
-      .order('start_time')
-      .map((data) {
-    return data
-        .map((map) => ShiftModel.fromMap(map['id'] as String, map))
-        .where((s) => s.isAvailable)
+  return FirebaseFirestore.instance
+      .collection('shifts')
+      .where('isAvailable', isEqualTo: true)
+      .orderBy('startTime')
+      .snapshots()
+      .map((snapshot) {
+    return snapshot.docs
+        .map((doc) => ShiftModel.fromMap(doc.id, doc.data()))
         .toList();
   });
 });

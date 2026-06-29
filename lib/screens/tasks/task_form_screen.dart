@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/user_model.dart';
 import '../../providers/user_provider.dart'; // ✅ import added
 
@@ -42,17 +42,16 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
               ElevatedButton(
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
-                    await Supabase.instance.client.from('tasks').insert({
+                    await FirebaseFirestore.instance.collection('tasks').add({
                       'title': _titleController.text,
                       'description': _descController.text,
-                      'restaurant_id': user.restaurantId,
-                      'assigned_to': null,
-                      'assigned_to_name': '',
+                      'restaurantId': user.restaurantId,
+                      'assignedTo': null,
+                      'assignedToName': '',
                       'status': 'pending',
+                      'createdAt': FieldValue.serverTimestamp(),
                     });
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                    }
+                    Navigator.pop(context);
                   }
                 },
                 child: const Text('Save'),
