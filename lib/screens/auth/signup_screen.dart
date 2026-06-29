@@ -1,6 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../twofa/twofa_setup_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -15,6 +15,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
   bool isLoading = false;
+
+  final supabase = Supabase.instance.client;
 
   Future<void> _signUp() async {
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
@@ -33,17 +35,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => isLoading = true);
 
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final AuthResponse res = await supabase.auth.signUp(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
 
-      context.go('/twofa');
-    } on FirebaseAuthException catch (e) {
-      String message = 'Sign-up failed';
-      if (e.code == 'email-already-in-use') message = 'Email already registered';
-      if (e.code == 'weak-password') message = 'Password is too weak';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      final user = res.user;
+      if (user != null) {
+        // Create custom profiles record
+        await supabase.from('profiles').upsert({
+          'id': user.id,
+          'email': user.email!,
+          'role': 'Staff',
+          'onboarding_completed': false,
+          'two_fa_enabled': false,
+        });
+      }
+
+      if (mounted) {
+        context.go('/twofa');
+      }
+    } on AuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }

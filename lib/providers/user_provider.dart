@@ -1,21 +1,21 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_model.dart';
 
 // Provider that fetches the full UserModel
 final userProvider = FutureProvider<UserModel?>((ref) async {
-  final user = FirebaseAuth.instance.currentUser;
+  final user = Supabase.instance.client.auth.currentUser;
   if (user == null) return null;
 
   try {
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
+    final data = await Supabase.instance.client
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
 
-    if (doc.exists) {
-      return UserModel.fromMap(user.uid, doc.data()!);
+    if (data != null) {
+      return UserModel.fromMap(user.id, data);
     }
     return null;
   } catch (e) {

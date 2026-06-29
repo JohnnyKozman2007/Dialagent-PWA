@@ -1,7 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/theme_provider.dart';
@@ -144,11 +143,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
               _buildSectionHeader('🎨 Appearance'),
               _buildSettingsTile(
-                icon: themeMode == ThemeMode.dark ? Icons.dark_mode : Icons.light_mode,
-                title: themeMode == ThemeMode.dark ? 'Dark Mode' : 'Light Mode',
-                subtitle: themeMode == ThemeMode.dark ? 'Dark theme enabled' : 'Light theme enabled',
-                onTap: () => ref.read(themeModeProvider.notifier).toggleTheme(),
-                color: themeMode == ThemeMode.dark ? Colors.purple : Colors.amber,
+                icon: themeMode == ThemeMode.dark
+                    ? Icons.dark_mode
+                    : themeMode == ThemeMode.light
+                        ? Icons.light_mode
+                        : Icons.settings_brightness,
+                title: themeMode == ThemeMode.dark
+                    ? 'Dark Mode'
+                    : themeMode == ThemeMode.light
+                        ? 'Light Mode'
+                        : 'System Default',
+                subtitle: themeMode == ThemeMode.dark
+                    ? 'Dark theme enabled'
+                    : themeMode == ThemeMode.light
+                        ? 'Light theme enabled'
+                        : 'Matches device system settings',
+                onTap: () => _showThemePickerDialog(context, themeMode),
+                color: themeMode == ThemeMode.dark
+                    ? Colors.purple
+                    : themeMode == ThemeMode.light
+                        ? Colors.amber
+                        : Colors.blueGrey,
               ),
               const SizedBox(height: 16),
 
@@ -425,15 +440,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   setState(() => _isLoading = true);
 
                   try {
-                    final user = FirebaseAuth.instance.currentUser;
+                    final user = Supabase.instance.client.auth.currentUser;
                     if (user == null) return;
 
-                    final doc = await FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(user.uid)
-                        .get();
+                    final doc = await Supabase.instance.client
+                        .from('profiles')
+                        .select('two_fa_secret')
+                        .eq('id', user.id)
+                        .maybeSingle();
 
-                    final secret = doc.data()?['twoFASecret'];
+                    final secret = doc?['two_fa_secret'];
                     if (secret == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('2FA not set up. Please contact admin.')),
@@ -453,12 +469,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       return;
                     }
 
-                    final credential = EmailAuthProvider.credential(
-                      email: user.email!,
-                      password: currentPasswordController.text,
+                    await Supabase.instance.client.auth.updateUser(
+                      UserAttributes(password: newPasswordController.text),
                     );
-                    await user.reauthenticateWithCredential(credential);
-                    await user.updatePassword(newPasswordController.text);
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Password updated successfully!')),
@@ -497,6 +510,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+
+
   void _showCuisinePicker(BuildContext context, UserModel user) {
     final List<String> cuisines = [
       'Italian', 'French', 'Chinese', 'Japanese', 'Mexican',
@@ -522,12 +537,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ? const Icon(Icons.check, color: Colors.green)
                   : null,
               onTap: () async {
-                final uid = FirebaseAuth.instance.currentUser?.uid;
+                final uid = Supabase.instance.client.auth.currentUser?.id;
                 if (uid != null) {
-                  await FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(uid)
-                      .update({'cuisineType': cuisine});
+                  await Supabase.instance.client
+                      .from('profiles')
+                      .update({'cuisine_type': cuisine})
+                      .eq('id', uid);
                   ref.invalidate(userProvider);
                   Navigator.pop(context);
                 }
@@ -586,12 +601,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final uid = FirebaseAuth.instance.currentUser?.uid;
+                final uid = Supabase.instance.client.auth.currentUser?.id;
                 if (uid != null) {
-                  await FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(uid)
-                      .update({'tableCount': tempCount});
+                  await Supabase.instance.client
+                      .from('profiles')
+                      .update({'table_count': tempCount})
+                      .eq('id', uid);
                   ref.invalidate(userProvider);
                   Navigator.pop(context);
                 }
@@ -643,10 +658,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirm == true) {
       ref.invalidate(userProvider);
       ref.invalidate(userRoleProvider);
-      await FirebaseAuth.instance.signOut();
+      await Supabase.instance.client.auth.signOut();
       if (context.mounted) {
         context.go('/login');
       }
     }
+  }
+
+  void _showThemePickerDialog(BuildContext context, ThemeMode currentMode) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Appearance'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<ThemeMode>(
+              title: const Text('System Default'),
+              subtitle: const Text('Matches device system settings'),
+              value: ThemeMode.system,
+              groupValue: currentMode,
+              activeColor: Colors.green,
+              onChanged: (val) {
+                if (val != null) {
+                  ref.read(themeModeProvider.notifier).setThemeMode(val);
+                  Navigator.pop(context);
+                }
+              },
+            ),
+            RadioListTile<ThemeMode>(
+              title: const Text('Light Mode'),
+              subtitle: const Text('Always use light appearance'),
+              value: ThemeMode.light,
+              groupValue: currentMode,
+              activeColor: Colors.green,
+              onChanged: (val) {
+                if (val != null) {
+                  ref.read(themeModeProvider.notifier).setThemeMode(val);
+                  Navigator.pop(context);
+                }
+              },
+            ),
+            RadioListTile<ThemeMode>(
+              title: const Text('Dark Mode'),
+              subtitle: const Text('Always use dark appearance'),
+              value: ThemeMode.dark,
+              groupValue: currentMode,
+              activeColor: Colors.green,
+              onChanged: (val) {
+                if (val != null) {
+                  ref.read(themeModeProvider.notifier).setThemeMode(val);
+                  Navigator.pop(context);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

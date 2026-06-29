@@ -7,20 +7,42 @@ final themeModeProvider = StateNotifierProvider<ThemeNotifier, ThemeMode>((ref) 
 });
 
 class ThemeNotifier extends StateNotifier<ThemeMode> {
-  ThemeNotifier() : super(ThemeMode.light) {
+  ThemeNotifier() : super(ThemeMode.system) {
     _loadTheme();
   }
 
   Future<void> _loadTheme() async {
     final prefs = await SharedPreferences.getInstance();
-    final isDark = prefs.getBool('darkMode') ?? false;
-    state = isDark ? ThemeMode.dark : ThemeMode.light;
+    final savedMode = prefs.getString('themeMode') ?? 'system';
+    
+    if (savedMode == 'dark') {
+      state = ThemeMode.dark;
+    } else if (savedMode == 'light') {
+      state = ThemeMode.light;
+    } else {
+      state = ThemeMode.system;
+    }
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    state = mode;
+    
+    String val = 'system';
+    if (mode == ThemeMode.dark) val = 'dark';
+    if (mode == ThemeMode.light) val = 'light';
+    
+    await prefs.setString('themeMode', val);
   }
 
   Future<void> toggleTheme() async {
-    final prefs = await SharedPreferences.getInstance();
-    final newMode = state == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
-    state = newMode;
-    await prefs.setBool('darkMode', newMode == ThemeMode.dark);
+    // Cycles: System -> Light -> Dark -> System
+    if (state == ThemeMode.system) {
+      await setThemeMode(ThemeMode.light);
+    } else if (state == ThemeMode.light) {
+      await setThemeMode(ThemeMode.dark);
+    } else {
+      await setThemeMode(ThemeMode.system);
+    }
   }
 }

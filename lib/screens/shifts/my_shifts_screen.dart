@@ -1,7 +1,7 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/shift_model.dart';
 import '../../providers/shift_provider.dart';
 
@@ -10,7 +10,7 @@ class MyShiftsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     final shiftsAsync = ref.watch(shiftsProvider);
 
     return Scaffold(
@@ -28,7 +28,7 @@ class MyShiftsScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
         data: (List<ShiftModel> shifts) {
-          final myShifts = shifts.where((s) => s.assignedTo == user?.uid).toList();
+          final myShifts = shifts.where((s) => s.assignedTo == user?.id).toList();
 
           if (myShifts.isEmpty) {
             return const Center(

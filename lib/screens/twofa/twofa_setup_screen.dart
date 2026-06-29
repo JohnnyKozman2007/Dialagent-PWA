@@ -1,12 +1,9 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:async';
 import 'package:go_router/go_router.dart';
 import '../../utils/totp_util.dart';
-import '../onboarding/onboarding_screen.dart';
-import '../dashboard/dashboard_screen.dart';
 
 class TwoFASetupScreen extends StatefulWidget {
   const TwoFASetupScreen({super.key});
@@ -45,20 +42,17 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
       )).timeout(const Duration(seconds: 3));
 
       if (isValid) {
-        final user = FirebaseAuth.instance.currentUser;
+        final user = Supabase.instance.client.auth.currentUser;
         if (user != null) {
           setState(() => isSaving = true);
           try {
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .set(
-                  {
-                    'twoFAEnabled': true,
-                    'twoFASecret': secretKey,
-                  },
-                  SetOptions(merge: true),
-                )
+            await Supabase.instance.client
+                .from('profiles')
+                .update({
+                  'two_fa_enabled': true,
+                  'two_fa_secret': secretKey,
+                })
+                .eq('id', user.id)
                 .timeout(const Duration(seconds: 5));
 
             setState(() {
@@ -101,16 +95,17 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
   }
 
   Future<void> _checkOnboarding() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
 
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final doc = await Supabase.instance.client
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
+      final hasOnboarding = doc?['onboarding_completed'] ?? false;
 
       if (!hasOnboarding) {
         context.go('/onboarding');
@@ -124,8 +119,7 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final account = user?.email ?? 'user@restaurant.com';
+    final user = Supabase.instance.client.auth.currentUser;
 
     final otpUri = TOTPUtil.getQRCodeUrl(
       appName: 'RestaurantApp',

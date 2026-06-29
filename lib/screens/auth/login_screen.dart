@@ -1,7 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/user_provider.dart';
 import '../onboarding/onboarding_screen.dart';
@@ -22,6 +21,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final passwordController = TextEditingController();
   bool isLoading = false;
 
+  final supabase = Supabase.instance.client;
+
   @override
   void initState() {
     super.initState();
@@ -31,18 +32,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _checkIfLoggedIn() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = supabase.auth.currentUser;
     if (user == null) return;
 
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get()
+      final doc = await supabase
+          .from('profiles')
+          .select('two_fa_enabled, onboarding_completed')
+          .eq('id', user.id)
+          .maybeSingle()
           .timeout(const Duration(seconds: 5));
 
-      final has2FA = doc.data()?['twoFAEnabled'] ?? false;
-      final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
+      final has2FA = doc?['two_fa_enabled'] ?? false;
+      final hasOnboarding = doc?['onboarding_completed'] ?? false;
 
       if (!mounted) return;
 
@@ -71,7 +73,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => isLoading = true);
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await supabase.auth.signInWithPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
@@ -79,17 +81,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ref.invalidate(userProvider);
       ref.invalidate(userRoleProvider);
 
-      final user = FirebaseAuth.instance.currentUser!;
+      final user = supabase.auth.currentUser!;
 
       try {
-        final doc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get()
+        final doc = await supabase
+            .from('profiles')
+            .select('two_fa_enabled, onboarding_completed')
+            .eq('id', user.id)
+            .maybeSingle()
             .timeout(const Duration(seconds: 5));
 
-        final has2FA = doc.data()?['twoFAEnabled'] ?? false;
-        final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
+        final has2FA = doc?['two_fa_enabled'] ?? false;
+        final hasOnboarding = doc?['onboarding_completed'] ?? false;
 
         if (!has2FA) {
           context.go('/twofa');
@@ -101,11 +104,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } catch (e) {
         context.go('/onboarding');
       }
-    } on FirebaseAuthException catch (e) {
-      String message = 'Login failed';
-      if (e.code == 'user-not-found') message = 'No user found with this email';
-      if (e.code == 'wrong-password') message = 'Wrong password';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } on AuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
