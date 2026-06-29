@@ -31,7 +31,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/dashboard'),
+          onPressed: () => context.pop(), // ✅ FIXED: go back to previous screen
         ),
       ),
       body: userAsync.when(
@@ -39,19 +39,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         error: (err, stack) => Center(child: Text('Error: $err')),
         data: (UserModel? user) {
           if (user == null) {
-            return const Center(child: Text('User not found'));
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              ref.refresh(userProvider);
+            });
+            return const Center(child: CircularProgressIndicator());
           }
 
           final isOwner = user.role == 'Owner';
           final isManager = user.role == 'Manager' || isOwner;
-          final perms = user.permissions;
 
           return ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
+              // --- Profile Header ---
               _buildProfileHeader(user),
               const SizedBox(height: 24),
 
+              // --- Profile Section ---
               _buildSectionHeader('👤 Profile'),
               _buildSettingsTile(
                 icon: Icons.person,
@@ -69,6 +73,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 16),
 
+              // --- Restaurant Section (Owner & Manager) ---
               if (isManager) ...[
                 _buildSectionHeader('🏢 Restaurant Info'),
                 _buildSettingsTile(
@@ -98,6 +103,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 16),
               ],
 
+              // --- Security Section ---
               _buildSectionHeader('🔒 Security'),
               _buildSettingsTile(
                 icon: Icons.qr_code,
@@ -109,38 +115,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 16),
 
+              // --- Staff Management (Owner Only, Verified) ---
               if (isOwner) ...[
                 _buildSectionHeader('👥 Staff Management'),
-                _buildSettingsTile(
-                  icon: Icons.schedule,
-                  title: 'Shift Management',
-                  subtitle: 'Create and manage staff shifts',
-                  onTap: () => context.go('/shifts'),
-                  color: Colors.purple,
-                ),
-                _buildSettingsTile(
-                  icon: Icons.people,
-                  title: 'Manage Staff',
-                  subtitle: 'Add, remove, or promote staff members',
-                  onTap: _showStaffManagementDialog,
-                  color: Colors.purple,
-                ),
-                _buildSettingsTile(
-                  icon: Icons.security,
-                  title: 'Manage Permissions',
-                  subtitle: 'Assign granular permissions to staff',
-                  onTap: () => context.push('/permissions', extra: user),
-                  color: Colors.deepPurple,
-                ),
+                if (user.isApproved) ...[
+                  _buildSettingsTile(
+                    icon: Icons.mail_outline,
+                    title: 'Invite Staff',
+                    subtitle: 'Send email invitations to new staff or managers',
+                    onTap: () => context.push('/invite'), // ✅ FIXED: push keeps Settings in stack
+                    color: Colors.teal,
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.security,
+                    title: 'Manage Permissions',
+                    subtitle: 'Assign granular permissions to staff',
+                    onTap: () => context.push('/permissions', extra: user), // ✅ FIXED: push keeps Settings in stack
+                    color: Colors.deepPurple,
+                  ),
+                ] else ...[
+                  _buildSettingsTile(
+                    icon: Icons.lock,
+                    title: 'Staff Management (Locked)',
+                    subtitle: 'Waiting for account verification',
+                    onTap: null,
+                    color: Colors.grey,
+                    isEditable: false,
+                  ),
+                ],
                 const SizedBox(height: 16),
               ],
 
-              if (!isOwner) ...[
-                _buildSectionHeader('🔑 Your Permissions'),
-                ..._buildPermissionTiles(perms),
-                const SizedBox(height: 16),
-              ],
-
+              // --- Appearance Section ---
               _buildSectionHeader('🎨 Appearance'),
               _buildSettingsTile(
                 icon: themeMode == ThemeMode.dark
@@ -167,6 +173,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 16),
 
+              // --- Danger Section ---
               _buildSectionHeader('⚠️ Account'),
               _buildSettingsTile(
                 icon: Icons.logout,
@@ -184,6 +191,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  // --- Profile Header ---
   Widget _buildProfileHeader(UserModel user) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -248,6 +256,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  // --- Section Header ---
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
@@ -262,6 +271,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  // --- Settings Tile ---
   Widget _buildSettingsTile({
     required IconData icon,
     required String title,
@@ -303,56 +313,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  List<Widget> _buildPermissionTiles(UserPermissions perms) {
-    final List<Map<String, dynamic>> permList = [
-      {'label': 'Manage Staff', 'value': perms.canManageStaff, 'icon': Icons.people},
-      {'label': 'Manage Menu', 'value': perms.canManageMenu, 'icon': Icons.menu_book},
-      {'label': 'Manage Tables', 'value': perms.canManageTables, 'icon': Icons.table_restaurant},
-      {'label': 'View Revenue', 'value': perms.canViewRevenue, 'icon': Icons.monetization_on},
-      {'label': 'Manage Reservations', 'value': perms.canManageReservations, 'icon': Icons.calendar_today},
-      {'label': 'View Settings', 'value': perms.canViewSettings, 'icon': Icons.settings},
-    ];
-
-    return permList.map((item) {
-      return Card(
-        elevation: 0,
-        margin: const EdgeInsets.only(bottom: 2),
-        color: item['value'] ? Colors.green.shade50 : Colors.grey.shade50,
-        child: ListTile(
-          leading: Icon(
-            item['value'] ? Icons.check_circle : Icons.cancel,
-            color: item['value'] ? Colors.green : Colors.grey,
-            size: 20,
-          ),
-          title: Text(
-            item['label'],
-            style: TextStyle(
-              color: item['value'] 
-                  ? Theme.of(context).colorScheme.primary 
-                  : Theme.of(context).colorScheme.onSurfaceVariant,
-              fontWeight: item['value'] ? FontWeight.w500 : FontWeight.normal,
-            ),
-          ),
-          trailing: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: item['value'] ? Colors.green : Colors.grey,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              item['value'] ? 'Granted' : 'Denied',
-              style: const TextStyle(
-                fontSize: 10,
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-      );
-    }).toList();
-  }
-
+  // --- Change Password with 2FA ---
   void _showChangePasswordDialog(BuildContext context) {
     final currentPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
@@ -362,86 +323,154 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text(step2 ? '2FA Verification' : 'Change Password'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!step2) ...[
-                TextField(
-                  controller: currentPasswordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Current Password',
-                    border: OutlineInputBorder(),
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Text(step2 ? '🔐 2FA Verification' : 'Change Password'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!step2) ...[
+                  TextField(
+                    controller: currentPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Current Password',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: newPasswordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'New Password',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: newPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'New Password',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: confirmPasswordController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Confirm New Password',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: confirmPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm New Password',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-              ] else ...[
-                const Text(
-                  'Enter your 2FA code to verify your identity',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: twoFAController,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  decoration: const InputDecoration(
-                    labelText: '6-digit 2FA Code',
-                    border: OutlineInputBorder(),
-                    counterText: '',
+                  const SizedBox(height: 8),
+                  const Text(
+                    '✅ Your current password will be verified before 2FA',
+                    style: TextStyle(fontSize: 12, color: Colors.green),
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                ] else ...[
+                  const Icon(Icons.security, size: 48, color: Colors.green),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Enter your 2FA code to verify your identity',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: twoFAController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: const InputDecoration(
+                      labelText: '6-digit 2FA Code',
+                      border: OutlineInputBorder(),
+                      counterText: '',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                if (!step2) {
-                  if (newPasswordController.text != confirmPasswordController.text) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Passwords do not match')),
-                    );
+            actions: [
+              TextButton(
+                onPressed: () {
+                  currentPasswordController.dispose();
+                  newPasswordController.dispose();
+                  confirmPasswordController.dispose();
+                  twoFAController.dispose();
+                  Navigator.pop(context);
+                },
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (!step2) {
+                    setState(() {
+                      _isLoading = true;
+                    });
+
+                    try {
+                      if (newPasswordController.text != confirmPasswordController.text) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Passwords do not match')),
+                        );
+                        setState(() => _isLoading = false);
+                        return;
+                      }
+                      if (newPasswordController.text.length < 6) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Password must be at least 6 characters')),
+                        );
+                        setState(() => _isLoading = false);
+                        return;
+                      }
+
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('User not logged in')),
+                        );
+                        setState(() => _isLoading = false);
+                        return;
+                      }
+
+                      final credential = EmailAuthProvider.credential(
+                        email: user.email!,
+                        password: currentPasswordController.text,
+                      );
+                      await user.reauthenticateWithCredential(credential);
+
+                      setState(() {
+                        _isLoading = false;
+                        step2 = true;
+                        twoFAController.clear();
+                      });
+                    } on FirebaseAuthException catch (e) {
+                      String message = 'Re-authentication failed';
+                      if (e.code == 'wrong-password') {
+                        message = '❌ Current password is incorrect';
+                      } else if (e.code == 'too-many-requests') {
+                        message = 'Too many failed attempts. Please try again later.';
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(message)),
+                      );
+                      setState(() => _isLoading = false);
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                      setState(() => _isLoading = false);
+                    }
                     return;
                   }
-                  if (newPasswordController.text.length < 6) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Password must be at least 6 characters')),
-                    );
-                    return;
-                  }
-                  setState(() => step2 = true);
-                } else {
+
                   setState(() => _isLoading = true);
 
                   try {
-                    final user = Supabase.instance.client.auth.currentUser;
-                    if (user == null) return;
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('User not logged in')),
+                      );
+                      setState(() => _isLoading = false);
+                      return;
+                    }
 
                     final doc = await Supabase.instance.client
                         .from('profiles')
@@ -454,6 +483,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('2FA not set up. Please contact admin.')),
                       );
+                      setState(() => _isLoading = false);
                       return;
                     }
 
@@ -464,25 +494,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                     if (!isValid) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Invalid 2FA code')),
+                        const SnackBar(content: Text('❌ Invalid 2FA code. Please try again.')),
                       );
+                      setState(() {
+                        _isLoading = false;
+                        twoFAController.clear();
+                      });
                       return;
                     }
 
-                    await Supabase.instance.client.auth.updateUser(
-                      UserAttributes(password: newPasswordController.text),
-                    );
+                    await user.updatePassword(newPasswordController.text);
 
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Password updated successfully!')),
+                      const SnackBar(
+                        content: Text('✅ Password updated successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
                     );
+
+                    currentPasswordController.dispose();
+                    newPasswordController.dispose();
+                    confirmPasswordController.dispose();
+                    twoFAController.dispose();
                     Navigator.pop(context);
                   } on FirebaseAuthException catch (e) {
                     String message = 'Failed to update password';
-                    if (e.code == 'wrong-password') {
-                      message = 'Current password is incorrect';
-                    } else if (e.code == 'requires-recent-login') {
+                    if (e.code == 'requires-recent-login') {
                       message = 'Please log out and log in again';
+                    } else if (e.code == 'weak-password') {
+                      message = 'New password is too weak';
                     }
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text(message)),
@@ -494,24 +534,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   }
 
                   setState(() => _isLoading = false);
-                }
-              },
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(step2 ? 'Verify & Update' : 'Next'),
-            ),
-          ],
-        ),
+                },
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(step2 ? 'Verify & Update' : 'Next ➜'),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-
-
+  // --- Cuisine Picker ---
   void _showCuisinePicker(BuildContext context, UserModel user) {
     final List<String> cuisines = [
       'Italian', 'French', 'Chinese', 'Japanese', 'Mexican',
@@ -539,11 +578,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onTap: () async {
                 final uid = Supabase.instance.client.auth.currentUser?.id;
                 if (uid != null) {
-                  await Supabase.instance.client
-                      .from('profiles')
-                      .update({'cuisine_type': cuisine})
-                      .eq('id', uid);
-                  ref.invalidate(userProvider);
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(uid)
+                      .update({'cuisineType': cuisine});
+                  ref.refresh(userProvider);
                   Navigator.pop(context);
                 }
               },
@@ -554,6 +593,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  // --- Table Count Picker ---
   void _showTableCountPicker(BuildContext context, UserModel user) {
     int tempCount = user.tableCount ?? 10;
 
@@ -603,11 +643,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onPressed: () async {
                 final uid = Supabase.instance.client.auth.currentUser?.id;
                 if (uid != null) {
-                  await Supabase.instance.client
-                      .from('profiles')
-                      .update({'table_count': tempCount})
-                      .eq('id', uid);
-                  ref.invalidate(userProvider);
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(uid)
+                      .update({'tableCount': tempCount});
+                  ref.refresh(userProvider);
                   Navigator.pop(context);
                 }
               },
@@ -619,22 +659,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showStaffManagementDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Staff Management'),
-        content: const Text('Manage your staff members here.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
+  // --- Logout ---
   void _logout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -663,59 +688,5 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         context.go('/login');
       }
     }
-  }
-
-  void _showThemePickerDialog(BuildContext context, ThemeMode currentMode) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Appearance'),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<ThemeMode>(
-              title: const Text('System Default'),
-              subtitle: const Text('Matches device system settings'),
-              value: ThemeMode.system,
-              groupValue: currentMode,
-              activeColor: Colors.green,
-              onChanged: (val) {
-                if (val != null) {
-                  ref.read(themeModeProvider.notifier).setThemeMode(val);
-                  Navigator.pop(context);
-                }
-              },
-            ),
-            RadioListTile<ThemeMode>(
-              title: const Text('Light Mode'),
-              subtitle: const Text('Always use light appearance'),
-              value: ThemeMode.light,
-              groupValue: currentMode,
-              activeColor: Colors.green,
-              onChanged: (val) {
-                if (val != null) {
-                  ref.read(themeModeProvider.notifier).setThemeMode(val);
-                  Navigator.pop(context);
-                }
-              },
-            ),
-            RadioListTile<ThemeMode>(
-              title: const Text('Dark Mode'),
-              subtitle: const Text('Always use dark appearance'),
-              value: ThemeMode.dark,
-              groupValue: currentMode,
-              activeColor: Colors.green,
-              onChanged: (val) {
-                if (val != null) {
-                  ref.read(themeModeProvider.notifier).setThemeMode(val);
-                  Navigator.pop(context);
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

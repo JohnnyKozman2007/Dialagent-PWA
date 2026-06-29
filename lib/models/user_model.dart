@@ -6,6 +6,7 @@ class UserModel {
   final String email;
   final String role;
   final String restaurantName;
+  final String restaurantId;
   final String? phone;
   final String? address;
   final String? cuisineType;
@@ -15,12 +16,14 @@ class UserModel {
   final String? twoFASecret;
   final DateTime createdAt;
   final UserPermissions permissions;
+  final bool isApproved;
 
   UserModel({
     required this.uid,
     required this.email,
     this.role = 'Staff',
     this.restaurantName = '',
+    this.restaurantId = '',
     this.phone,
     this.address,
     this.cuisineType,
@@ -29,7 +32,8 @@ class UserModel {
     this.twoFAEnabled = false,
     this.twoFASecret,
     required this.createdAt,
-    this.permissions = const UserPermissions(), // <-- ADD 'const' HERE
+    this.permissions = const UserPermissions(),
+    this.isApproved = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -38,6 +42,7 @@ class UserModel {
       'email': email,
       'role': role,
       'restaurantName': restaurantName,
+      'restaurantId': restaurantId,
       'phone': phone,
       'address': address,
       'cuisineType': cuisineType,
@@ -47,6 +52,7 @@ class UserModel {
       'twoFASecret': twoFASecret,
       'createdAt': createdAt,
       'permissions': permissions.toMap(),
+      'isApproved': isApproved,
     };
   }
 
@@ -72,7 +78,8 @@ class UserModel {
       uid: uid,
       email: map['email'] ?? '',
       role: map['role'] ?? 'Staff',
-      restaurantName: map['restaurantName'] ?? map['restaurant_name'] ?? '',
+      restaurantName: map['restaurantName'] ?? '',
+      restaurantId: map['restaurantId'] ?? '',
       phone: map['phone'],
       address: map['address'],
       cuisineType: map['cuisineType'] ?? map['cuisine_type'],
@@ -92,6 +99,7 @@ class UserModel {
       permissions: map['permissions'] != null
           ? UserPermissions.fromMap(map['permissions'])
           : UserPermissions.staffPermissions(),
+      isApproved: map['isApproved'] ?? false,
     );
   }
 }

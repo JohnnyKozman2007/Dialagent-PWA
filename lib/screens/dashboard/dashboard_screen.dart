@@ -3,12 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/user_provider.dart';
+import '../../utils/session_storage.dart';
 
+// --------------------------------------------
+// AGENTIC ENGINE (Config-based)
+// --------------------------------------------
 class AgenticEngine {
   static AgenticConfig getConfig(String role) {
     final now = DateTime.now();
     final hour = now.hour;
 
+    // --- OWNER CONFIG ---
     if (role == 'Owner') {
       return AgenticConfig(
         role: role,
@@ -39,6 +44,13 @@ class AgenticEngine {
             icon: Icons.schedule,
             route: '/shifts',
           ),
+          // 🔥 TASKS CARD ADDED HERE
+          DashboardCard(
+            title: '📋 Tasks',
+            subtitle: 'View and manage tasks',
+            icon: Icons.task,
+            route: '/tasks',
+          ),
           DashboardCard(
             title: '⚙️ Settings',
             subtitle: 'Update business info',
@@ -47,7 +59,10 @@ class AgenticEngine {
           ),
         ],
       );
-    } else if (role == 'Manager') {
+    }
+
+    // --- MANAGER CONFIG ---
+    else if (role == 'Manager') {
       return AgenticConfig(
         role: role,
         greeting: _getGreeting(hour, 'Manager'),
@@ -58,6 +73,13 @@ class AgenticEngine {
             subtitle: 'View and manage shifts',
             icon: Icons.schedule,
             route: '/shifts',
+          ),
+          // 🔥 TASKS CARD ADDED HERE
+          DashboardCard(
+            title: '📋 Tasks',
+            subtitle: 'View and manage tasks',
+            icon: Icons.task,
+            route: '/tasks',
           ),
           DashboardCard(
             title: '🍽️ Table Management',
@@ -77,9 +99,18 @@ class AgenticEngine {
             icon: Icons.notifications_active,
             route: null,
           ),
+          DashboardCard(
+            title: '⚙️ Settings',
+            subtitle: 'Update business info',
+            icon: Icons.settings,
+            route: '/settings',
+          ),
         ],
       );
-    } else {
+    }
+
+    // --- STAFF CONFIG ---
+    else {
       return AgenticConfig(
         role: role,
         greeting: _getGreeting(hour, 'Staff'),
@@ -97,17 +128,30 @@ class AgenticEngine {
             icon: Icons.access_time,
             route: '/my-shifts',
           ),
+          // 🔥 TASKS CARD ADDED HERE
           DashboardCard(
-            title: '✅ Tasks',
-            subtitle: '3 tasks pending',
+            title: '📋 Tasks',
+            subtitle: 'View and claim tasks',
             icon: Icons.task,
-            route: null,
+            route: '/tasks',
+          ),
+          DashboardCard(
+            title: '📋 My Tasks',         // ✅ Renamed and kept only one
+            subtitle: 'View and claim tasks',
+            icon: Icons.task,
+            route: '/tasks',
           ),
           DashboardCard(
             title: '🍽️ Assigned Tables',
             subtitle: 'Tables: 3, 7, 12',
             icon: Icons.table_restaurant,
             route: null,
+          ),
+          DashboardCard(
+            title: '⚙️ Settings',
+            subtitle: 'Update business info',
+            icon: Icons.settings,
+            route: '/settings',
           ),
         ],
       );
@@ -122,11 +166,15 @@ class AgenticEngine {
   }
 }
 
+// --------------------------------------------
+// AGENTIC CONFIG
+// --------------------------------------------
 class AgenticConfig {
   final String role;
   final String greeting;
   final Color themeColor;
   final List<DashboardCard> cards;
+
   AgenticConfig({
     required this.role,
     required this.greeting,
@@ -135,11 +183,15 @@ class AgenticConfig {
   });
 }
 
+// --------------------------------------------
+// DASHBOARD CARD
+// --------------------------------------------
 class DashboardCard {
   final String title;
   final String subtitle;
   final IconData icon;
   final String? route;
+
   DashboardCard({
     required this.title,
     required this.subtitle,
@@ -148,6 +200,9 @@ class DashboardCard {
   });
 }
 
+// --------------------------------------------
+// DASHBOARD SCREEN
+// --------------------------------------------
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -165,6 +220,9 @@ class DashboardScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
+              // Clear 2FA session flag on logout
+              SessionStorage.clear();
+
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
@@ -254,7 +312,7 @@ class DashboardScreen extends ConsumerWidget {
                           ),
                           onTap: () {
                             if (card.route != null) {
-                              context.go(card.route!);
+                              context.push(card.route!); // ✅ preserves Dashboard in stack
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

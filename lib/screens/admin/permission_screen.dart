@@ -33,10 +33,10 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
       final currentUser = Supabase.instance.client.auth.currentUser;
       if (currentUser == null) return;
 
-      final res = await Supabase.instance.client
-          .from('profiles')
-          .select('*')
-          .neq('role', 'Owner');
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('role', isNotEqualTo: 'Owner')
+          .get();
 
       setState(() {
         _staffMembers = (res as List)
@@ -59,15 +59,15 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
           .from('profiles')
           .update({
         'permissions': permissions.toMap(),
-      }).eq('id', userId);
-      
+      });
+
       ref.invalidate(userProvider);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Permissions updated successfully!')),
         );
-        _loadStaffMembers(); // Reload to reflect changes
+        _loadStaffMembers();
       }
     } catch (e) {
       if (mounted) {
@@ -88,7 +88,7 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/settings'),
+          onPressed: () => context.pop(), // ✅ FIXED
         ),
       ),
       body: _isLoading
@@ -116,7 +116,6 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Staff Selector
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
@@ -158,8 +157,6 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-
-                      // Permissions Editor
                       if (_selectedUserId.isNotEmpty) ...[
                         _buildPermissionEditor(),
                       ],

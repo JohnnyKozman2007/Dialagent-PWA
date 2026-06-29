@@ -4,16 +4,21 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
 import '../screens/auth/recovery_screen.dart';
+import '../screens/auth/pending_approval_screen.dart';
 import '../screens/twofa/twofa_setup_screen.dart';
+import '../screens/twofa/twofa_verify_screen.dart';
 import '../screens/onboarding/onboarding_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/settings/edit_profile_screen.dart';
 import '../screens/settings/edit_restaurant_screen.dart';
 import '../screens/admin/permission_screen.dart';
+import '../screens/admin/invite_screen.dart';
 import '../screens/shifts/shift_screen.dart';
 import '../screens/shifts/my_shifts_screen.dart';
+import '../screens/tasks/task_screen.dart';
 import '../models/user_model.dart';
+import '../utils/session_storage.dart';
 
 final router = GoRouter(
   initialLocation: '/login',
@@ -28,32 +33,35 @@ final router = GoRouter(
       return null;
     }
 
+    final flowPaths = ['/twofa', '/onboarding', '/pending-approval', '/verify-2fa'];
+    if (flowPaths.contains(state.uri.path)) {
+      return null;
+    }
+
     try {
-      final res = await Supabase.instance.client
-          .from('profiles')
-          .select('two_fa_enabled, onboarding_completed')
-          .eq('id', user.id)
-          .maybeSingle()
-          .timeout(const Duration(seconds: 3));
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get()
+          .timeout(const Duration(seconds: 5));
 
-      final has2FA = res?['two_fa_enabled'] ?? false;
-      final hasOnboarding = res?['onboarding_completed'] ?? false;
+      final has2FA = doc.data()?['twoFAEnabled'] ?? false;
+      final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
+      final isApproved = doc.data()?['isApproved'] ?? false;
 
-      if (!has2FA && state.uri.path != '/twofa') {
+      if (!has2FA) {
         return '/twofa';
       }
-
-      if (has2FA && !hasOnboarding && state.uri.path != '/onboarding') {
+      if (!hasOnboarding) {
         return '/onboarding';
       }
-
-      if (has2FA && hasOnboarding) {
-        if (state.uri.path == '/login' || state.uri.path == '/') {
-          return '/dashboard';
-        }
-        return null;
+      if (!isApproved) {
+        return '/pending-approval';
       }
 
+      if (state.uri.path == '/login' || state.uri.path == '/') {
+        return '/dashboard';
+      }
       return null;
     } catch (e) {
       if (state.uri.path == '/login' || state.uri.path == '/') {
@@ -71,7 +79,7 @@ final router = GoRouter(
     GoRoute(
       path: '/signup',
       name: 'signup',
-      builder: (context, state) => const SignUpScreen(),
+      builder: (context, state) => const SignUpScreen(), // ✅ Correct
     ),
     GoRoute(
       path: '/recovery',
@@ -81,7 +89,20 @@ final router = GoRouter(
     GoRoute(
       path: '/twofa',
       name: 'twofa',
-      builder: (context, state) => const TwoFASetupScreen(),
+      builder: (context, state) => const TwoFASetupScreen(), // ✅ Correct
+    ),
+    GoRoute(
+      path: '/verify-2fa',
+      name: 'verify-2fa',
+      builder: (context, state) {
+        final email = state.extra as String? ?? '';
+        return TwoFAVerifyScreen(email: email); // ✅ Correct
+      },
+    ),
+    GoRoute(
+      path: '/pending-approval',
+      name: 'pending-approval',
+      builder: (context, state) => const PendingApprovalScreen(),
     ),
     GoRoute(
       path: '/onboarding',
@@ -107,6 +128,16 @@ final router = GoRouter(
       path: '/my-shifts',
       name: 'my-shifts',
       builder: (context, state) => const MyShiftsScreen(),
+    ),
+    GoRoute(
+      path: '/tasks',
+      name: 'tasks',
+      builder: (context, state) => const TaskScreen(),
+    ),
+    GoRoute(
+      path: '/invite',
+      name: 'invite',
+      builder: (context, state) => const InviteScreen(),
     ),
     GoRoute(
       path: '/edit-profile',
