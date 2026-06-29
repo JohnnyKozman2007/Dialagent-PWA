@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/task_model.dart';
 import '../../providers/task_provider.dart';
 import '../../providers/user_provider.dart';
@@ -20,12 +19,11 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
   String _filterAssignee = 'all';
 
   Future<void> _markTaskDone(Task task) async {
-    await FirebaseFirestore.instance
-        .collection('tasks')
-        .doc(task.id)
+    await Supabase.instance.client
+        .from('tasks')
         .update({
       'status': 'completed',
-    });
+    }).eq('id', task.id);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('✅ Task marked as done!'),
@@ -66,12 +64,7 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
       ),
       body: tasksAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) {
-          if (error.toString().contains('failed-precondition')) {
-            return _buildIndexError(context, error);
-          }
-          return Center(child: Text('Error: $error'));
-        },
+        error: (error, stack) => Center(child: Text('Error: $error')),
         data: (tasks) {
           List<Task> filtered = tasks.where((task) {
             if (_filterStatus != 'all' && task.status != _filterStatus) return false;
@@ -130,55 +123,6 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
               child: const Icon(Icons.add),
             )
           : null,
-    );
-  }
-
-  Widget _buildIndexError(BuildContext context, Object error) {
-    final errorString = error.toString();
-    final linkStart = errorString.indexOf('https://');
-    final linkEnd = errorString.indexOf(' ', linkStart);
-    String link = linkStart != -1
-        ? errorString.substring(linkStart, linkEnd != -1 ? linkEnd : errorString.length)
-        : '';
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.warning_amber_rounded, size: 60, color: Colors.orange),
-            const SizedBox(height: 16),
-            const Text(
-              'Firestore Index Required',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Please create the missing composite index for tasks.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            if (link.isNotEmpty)
-              ElevatedButton.icon(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: link));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Index creation link copied to clipboard')),
-                  );
-                },
-                icon: const Icon(Icons.copy),
-                label: const Text('Copy Index Link'),
-              ),
-            const SizedBox(height: 16),
-            Text(
-              'If you have the link, open it in your browser and create the index.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -36,17 +36,35 @@ class ShiftModel {
     };
   }
 
+  Map<String, dynamic> toSupabaseMap() {
+    return {
+      'title': title,
+      'start_time': startTime.toIso8601String(),
+      'end_time': endTime.toIso8601String(),
+      'assigned_to': assignedTo,
+      'assigned_to_name': assignedToName,
+      'is_available': isAvailable,
+    };
+  }
+
   factory ShiftModel.fromMap(String id, Map<String, dynamic> map) {
+    DateTime parseDate(dynamic value) {
+      if (value is Timestamp) return value.toDate();
+      if (value is String) return DateTime.parse(value);
+      if (value is DateTime) return value;
+      return DateTime.now();
+    }
+
     return ShiftModel(
       id: id,
       title: map['title'] ?? '',
-      startTime: (map['startTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      endTime: (map['endTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      assignedTo: map['assignedTo'],
-      assignedToName: map['assignedToName'] ?? '',
+      startTime: parseDate(map['startTime'] ?? map['start_time']),
+      endTime: parseDate(map['endTime'] ?? map['end_time']),
+      assignedTo: map['assignedTo'] ?? map['assigned_to'],
+      assignedToName: map['assignedToName'] ?? map['assigned_to_name'] ?? '',
       role: map['role'] ?? 'Staff',
-      isAvailable: map['isAvailable'] ?? true,
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isAvailable: map['isAvailable'] ?? map['is_available'] ?? true,
+      createdAt: parseDate(map['createdAt'] ?? map['created_at']),
     );
   }
 }

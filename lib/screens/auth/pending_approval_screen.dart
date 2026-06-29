@@ -1,6 +1,5 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 
 class PendingApprovalScreen extends StatefulWidget {
@@ -18,21 +17,23 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
   }
 
   void _listenToApprovalStatus() {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
       context.go('/login');
       return;
     }
 
-    FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .snapshots()
-        .listen((doc) {
+    Supabase.instance.client
+        .from('profiles')
+        .stream(primaryKey: ['id'])
+        .eq('id', user.id)
+        .listen((data) {
       if (!mounted) return;
-      final isApproved = doc.data()?['isApproved'] ?? false;
-      if (isApproved) {
-        context.go('/dashboard');
+      if (data.isNotEmpty) {
+        final isApproved = data.first['is_approved'] ?? false;
+        if (isApproved) {
+          context.go('/dashboard');
+        }
       }
     });
   }
@@ -91,7 +92,7 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
                         ),
                         ElevatedButton(
                           onPressed: () async {
-                            await FirebaseAuth.instance.signOut();
+                            await Supabase.instance.client.auth.signOut();
                             if (context.mounted) {
                               context.go('/login');
                             }
