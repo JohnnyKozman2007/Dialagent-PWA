@@ -29,12 +29,12 @@ class UserPermissions {
 
   factory UserPermissions.fromMap(Map<String, dynamic> map) {
     return UserPermissions(
-      canManageStaff: map['canManageStaff'] ?? false,
-      canManageMenu: map['canManageMenu'] ?? false,
-      canManageTables: map['canManageTables'] ?? false,
-      canViewRevenue: map['canViewRevenue'] ?? false,
-      canManageReservations: map['canManageReservations'] ?? false,
-      canViewSettings: map['canViewSettings'] ?? false,
+      canManageStaff: map['canManageStaff'] ?? map['can_manage_staff'] ?? false,
+      canManageMenu: map['canManageMenu'] ?? map['can_manage_menu'] ?? false,
+      canManageTables: map['canManageTables'] ?? map['can_manage_tables'] ?? false,
+      canViewRevenue: map['canViewRevenue'] ?? map['can_view_revenue'] ?? false,
+      canManageReservations: map['canManageReservations'] ?? map['can_manage_reservations'] ?? false,
+      canViewSettings: map['canViewSettings'] ?? map['can_view_settings'] ?? false,
     );
   }
 

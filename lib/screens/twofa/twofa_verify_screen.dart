@@ -1,7 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../../utils/totp_util.dart';
 import '../../providers/auth_provider.dart';
@@ -34,7 +33,7 @@ class _TwoFAVerifyScreenState extends ConsumerState<TwoFAVerifyScreen> {
     });
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
         setState(() {
           _errorMessage = 'User not logged in';
@@ -43,12 +42,13 @@ class _TwoFAVerifyScreenState extends ConsumerState<TwoFAVerifyScreen> {
         return;
       }
 
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final doc = await Supabase.instance.client
+          .from('profiles')
+          .select('two_fa_secret, onboarding_completed')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      final secret = doc.data()?['twoFASecret'];
+      final secret = doc?['two_fa_secret'];
       if (secret == null) {
         context.go('/twofa');
         return;
@@ -72,7 +72,7 @@ class _TwoFAVerifyScreenState extends ConsumerState<TwoFAVerifyScreen> {
       ref.read(twoFAVerifiedProvider.notifier).state = true;
       SessionStorage.setTwoFAVerified(true);
 
-      final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
+      final hasOnboarding = doc?['onboarding_completed'] ?? false;
       if (!hasOnboarding) {
         context.go('/onboarding');
       } else {

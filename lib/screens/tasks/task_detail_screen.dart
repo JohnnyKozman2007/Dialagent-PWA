@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/task_model.dart';
 import '../../providers/user_provider.dart';
 import 'task_form_screen.dart';
@@ -35,7 +35,7 @@ class TaskDetailScreen extends ConsumerWidget {
         ),
       );
       if (confirm == true) {
-        await FirebaseFirestore.instance.collection('tasks').doc(task.id).delete();
+        await Supabase.instance.client.from('tasks').delete().eq('id', task.id);
         if (context.mounted) Navigator.pop(context);
       }
     }
@@ -43,10 +43,10 @@ class TaskDetailScreen extends ConsumerWidget {
     Future<void> toggleClaim() async {
       final newAssignedTo = isAssignedToMe ? null : currentUser?.uid;
       final newAssignedToName = isAssignedToMe ? '' : currentUser?.email ?? '';
-      await FirebaseFirestore.instance.collection('tasks').doc(task.id).update({
-        'assignedTo': newAssignedTo,
-        'assignedToName': newAssignedToName,
-      });
+      await Supabase.instance.client.from('tasks').update({
+        'assigned_to': newAssignedTo,
+        'assigned_to_name': newAssignedToName,
+      }).eq('id', task.id);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(isAssignedToMe ? 'Unclaimed' : 'Claimed')),
       );
