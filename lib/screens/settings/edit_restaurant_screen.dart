@@ -1,8 +1,7 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/user_model.dart';
 import '../../providers/user_provider.dart';
 
@@ -35,11 +34,11 @@ class _EditRestaurantScreenState extends ConsumerState<EditRestaurantScreen> {
     setState(() => isLoading = true);
 
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
+      final uid = Supabase.instance.client.auth.currentUser?.id;
       if (uid != null) {
-        await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        await Supabase.instance.client.from('profiles').update({
           'address': addressController.text.trim(),
-        });
+        }).eq('id', uid);
         ref.invalidate(userProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Restaurant info updated successfully!')),

@@ -1,7 +1,7 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/session_storage.dart';
 
@@ -208,7 +208,7 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     final roleAsync = ref.watch(userRoleProvider);
 
     return Scaffold(
@@ -245,7 +245,7 @@ class DashboardScreen extends ConsumerWidget {
               if (confirm == true) {
                 ref.invalidate(userProvider);
                 ref.invalidate(userRoleProvider);
-                await FirebaseAuth.instance.signOut();
+                await Supabase.instance.client.auth.signOut();
                 if (context.mounted) {
                   context.go('/login');
                 }

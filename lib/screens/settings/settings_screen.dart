@@ -1,7 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/theme_provider.dart';
@@ -150,11 +149,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               // --- Appearance Section ---
               _buildSectionHeader('🎨 Appearance'),
               _buildSettingsTile(
-                icon: themeMode == ThemeMode.dark ? Icons.dark_mode : Icons.light_mode,
-                title: themeMode == ThemeMode.dark ? 'Dark Mode' : 'Light Mode',
-                subtitle: themeMode == ThemeMode.dark ? 'Dark theme enabled' : 'Light theme enabled',
-                onTap: () => ref.read(themeModeProvider.notifier).toggleTheme(),
-                color: themeMode == ThemeMode.dark ? Colors.purple : Colors.amber,
+                icon: themeMode == ThemeMode.dark
+                    ? Icons.dark_mode
+                    : themeMode == ThemeMode.light
+                        ? Icons.light_mode
+                        : Icons.settings_brightness,
+                title: themeMode == ThemeMode.dark
+                    ? 'Dark Mode'
+                    : themeMode == ThemeMode.light
+                        ? 'Light Mode'
+                        : 'System Default',
+                subtitle: themeMode == ThemeMode.dark
+                    ? 'Dark theme enabled'
+                    : themeMode == ThemeMode.light
+                        ? 'Light theme enabled'
+                        : 'Matches device system settings',
+                onTap: () => _showThemePickerDialog(context, themeMode),
+                color: themeMode == ThemeMode.dark
+                    ? Colors.purple
+                    : themeMode == ThemeMode.light
+                        ? Colors.amber
+                        : Colors.blueGrey,
               ),
               const SizedBox(height: 16),
 
@@ -457,12 +472,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       return;
                     }
 
-                    final doc = await FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(user.uid)
-                        .get();
+                    final doc = await Supabase.instance.client
+                        .from('profiles')
+                        .select('two_fa_secret')
+                        .eq('id', user.id)
+                        .maybeSingle();
 
-                    final secret = doc.data()?['twoFASecret'];
+                    final secret = doc?['two_fa_secret'];
                     if (secret == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('2FA not set up. Please contact admin.')),
@@ -560,7 +576,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ? const Icon(Icons.check, color: Colors.green)
                   : null,
               onTap: () async {
-                final uid = FirebaseAuth.instance.currentUser?.uid;
+                final uid = Supabase.instance.client.auth.currentUser?.id;
                 if (uid != null) {
                   await FirebaseFirestore.instance
                       .collection('users')
@@ -625,7 +641,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final uid = FirebaseAuth.instance.currentUser?.uid;
+                final uid = Supabase.instance.client.auth.currentUser?.id;
                 if (uid != null) {
                   await FirebaseFirestore.instance
                       .collection('users')
@@ -667,7 +683,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirm == true) {
       ref.invalidate(userProvider);
       ref.invalidate(userRoleProvider);
-      await FirebaseAuth.instance.signOut();
+      await Supabase.instance.client.auth.signOut();
       if (context.mounted) {
         context.go('/login');
       }
