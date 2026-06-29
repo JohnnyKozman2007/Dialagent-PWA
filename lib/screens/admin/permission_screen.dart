@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/user_model.dart';
 import '../../models/permissions.dart';
@@ -30,7 +31,7 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final currentUser = Supabase.instance.client.auth.currentUser;
+      final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) return;
 
       final snapshot = await FirebaseFirestore.instance
@@ -39,8 +40,8 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
           .get();
 
       setState(() {
-        _staffMembers = (res as List)
-            .map((map) => UserModel.fromMap(map['id'] as String, map))
+        _staffMembers = snapshot.docs
+            .map((doc) => UserModel.fromMap(doc.id, doc.data()))
             .toList();
         if (_staffMembers.isNotEmpty) {
           _selectedUserId = _staffMembers.first.uid;
@@ -55,8 +56,9 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
 
   Future<void> _updatePermissions(String userId, UserPermissions permissions) async {
     try {
-      await Supabase.instance.client
-          .from('profiles')
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
           .update({
         'permissions': permissions.toMap(),
       });
