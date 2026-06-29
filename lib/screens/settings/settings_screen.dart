@@ -1,6 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/theme_provider.dart';
@@ -404,7 +405,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         return;
                       }
 
-                      final user = Supabase.instance.client.auth.currentUser;
+                      final user = FirebaseAuth.instance.currentUser;
                       if (user == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('User not logged in')),
@@ -413,19 +414,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         return;
                       }
 
-                      await Supabase.instance.client.auth.signInWithPassword(
+                      final credential = EmailAuthProvider.credential(
                         email: user.email!,
                         password: currentPasswordController.text,
                       );
+                      await user.reauthenticateWithCredential(credential);
 
                       setState(() {
                         _isLoading = false;
                         step2 = true;
                         twoFAController.clear();
                       });
-                    } on AuthException catch (e) {
+                    } on FirebaseAuthException catch (e) {
+                      String message = 'Re-authentication failed';
+                      if (e.code == 'wrong-password') {
+                        message = '❌ Current password is incorrect';
+                      } else if (e.code == 'too-many-requests') {
+                        message = 'Too many failed attempts. Please try again later.';
+                      }
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('❌ Re-authentication failed: ${e.message}')),
+                        SnackBar(content: Text(message)),
                       );
                       setState(() => _isLoading = false);
                     } catch (e) {
@@ -440,7 +448,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   setState(() => _isLoading = true);
 
                   try {
-                    final user = Supabase.instance.client.auth.currentUser;
+                    final user = FirebaseAuth.instance.currentUser;
                     if (user == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('User not logged in')),
@@ -449,13 +457,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       return;
                     }
 
-                    final doc = await Supabase.instance.client
-                        .from('profiles')
-                        .select('two_fa_secret')
-                        .eq('id', user.id)
-                        .maybeSingle();
+                    final doc = await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(user.uid)
+                        .get();
 
-                    final secret = doc?['two_fa_secret'];
+                    final secret = doc.data()?['twoFASecret'];
                     if (secret == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('2FA not set up. Please contact admin.')),
@@ -480,9 +487,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       return;
                     }
 
-                    await Supabase.instance.client.auth.updateUser(
-                      UserAttributes(password: newPasswordController.text),
-                    );
+                    await user.updatePassword(newPasswordController.text);
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -496,9 +501,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     confirmPasswordController.dispose();
                     twoFAController.dispose();
                     Navigator.pop(context);
-                  } on AuthException catch (e) {
+                  } on FirebaseAuthException catch (e) {
+                    String message = 'Failed to update password';
+                    if (e.code == 'requires-recent-login') {
+                      message = 'Please log out and log in again';
+                    } else if (e.code == 'weak-password') {
+                      message = 'New password is too weak';
+                    }
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to update password: ${e.message}')),
+                      SnackBar(content: Text(message)),
                     );
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -549,16 +560,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ? const Icon(Icons.check, color: Colors.green)
                   : null,
               onTap: () async {
-                final user = Supabase.instance.client.auth.currentUser;
-                if (user != null) {
-                  await Supabase.instance.client
-                      .from('profiles')
-                      .update({'cuisine_type': cuisine})
-                      .eq('id', user.id);
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+                if (uid != null) {
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(uid)
+                      .update({'cuisineType': cuisine});
                   ref.refresh(userProvider);
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                  }
+                  Navigator.pop(context);
                 }
               },
             )),
@@ -616,16 +625,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final user = Supabase.instance.client.auth.currentUser;
-                if (user != null) {
-                  await Supabase.instance.client
-                      .from('profiles')
-                      .update({'table_count': tempCount})
-                      .eq('id', user.id);
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+                if (uid != null) {
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(uid)
+                      .update({'tableCount': tempCount});
                   ref.refresh(userProvider);
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                  }
+                  Navigator.pop(context);
                 }
               },
               child: const Text('Save'),
@@ -660,7 +667,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirm == true) {
       ref.invalidate(userProvider);
       ref.invalidate(userRoleProvider);
-      await Supabase.instance.client.auth.signOut();
+      await FirebaseAuth.instance.signOut();
       if (context.mounted) {
         context.go('/login');
       }

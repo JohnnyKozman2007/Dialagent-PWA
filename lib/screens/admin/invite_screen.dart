@@ -1,5 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 
 class InviteScreen extends StatefulWidget {
@@ -22,27 +23,24 @@ class _InviteScreenState extends State<InviteScreen> {
     setState(() => isLoading = true);
 
     try {
-      final user = Supabase.instance.client.auth.currentUser;
+      final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('Not logged in');
 
       // Get the owner's document
-      final ownerDoc = await Supabase.instance.client
-          .from('profiles')
-          .select('restaurant_id')
-          .eq('id', user.id)
-          .maybeSingle();
+      final ownerDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
 
-      String? restaurantId = ownerDoc?['restaurant_id'];
+      String? restaurantId = ownerDoc.data()?['restaurantId'];
 
       // 🔥 FIX: If restaurantId is missing, use the owner's UID
       if (restaurantId == null || restaurantId.isEmpty) {
-        restaurantId = user.id;
+        restaurantId = user.uid;
         // Save it back to the owner's document so future invites work
-        await Supabase.instance.client
-            .from('profiles')
-            .update({'restaurant_id': restaurantId})
-            .eq('id', user.id);
-
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+          'restaurantId': restaurantId,
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Restaurant ID assigned. You can now invite staff.'),
@@ -51,16 +49,11 @@ class _InviteScreenState extends State<InviteScreen> {
         );
       }
 
-      final email = emailController.text.trim().toLowerCase();
+      final email = emailController.text.trim();
 
-      // Check if user already exists in profiles
-      final existingUser = await Supabase.instance.client
-          .from('profiles')
-          .select('id')
-          .eq('email', email)
-          .maybeSingle();
-
-      if (existingUser != null) {
+      // Check if user already exists in Firebase Auth
+      final methods = await FirebaseAuth.instance.fetchSignInMethodsForEmail(email);
+      if (methods.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('This email is already registered.')),
         );
@@ -69,14 +62,13 @@ class _InviteScreenState extends State<InviteScreen> {
       }
 
       // Check if invite already exists
-      final existingInvite = await Supabase.instance.client
-          .from('invites')
-          .select('id')
-          .eq('email', email)
-          .eq('used', false)
-          .maybeSingle();
+      final existingInvite = await FirebaseFirestore.instance
+          .collection('invites')
+          .where('email', isEqualTo: email)
+          .where('used', isEqualTo: false)
+          .get();
 
-      if (existingInvite != null) {
+      if (existingInvite.docs.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('An invite already exists for this email.')),
         );
@@ -85,12 +77,13 @@ class _InviteScreenState extends State<InviteScreen> {
       }
 
       // Create invite with restaurantId
-      await Supabase.instance.client.from('invites').insert({
+      await FirebaseFirestore.instance.collection('invites').add({
         'email': email,
         'role': selectedRole,
-        'restaurant_id': restaurantId,
+        'restaurantId': restaurantId,
         'used': false,
-        'created_by': user.id,
+        'createdAt': FieldValue.serverTimestamp(),
+        'createdBy': user.uid,
       });
 
       ScaffoldMessenger.of(context).showSnackBar(

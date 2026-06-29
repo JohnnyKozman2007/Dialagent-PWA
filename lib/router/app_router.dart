@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
 import '../screens/auth/recovery_screen.dart';
@@ -23,10 +24,10 @@ import '../utils/session_storage.dart';
 final router = GoRouter(
   initialLocation: '/login',
   redirect: (context, state) async {
-    final user = Supabase.instance.client.auth.currentUser;
+    final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
-      final allowedPaths = ['/login', '/signup', '/recovery', '/verify-2fa'];
+      final allowedPaths = ['/login', '/signup', '/recovery'];
       if (!allowedPaths.contains(state.uri.path)) {
         return '/login';
       }
@@ -39,16 +40,15 @@ final router = GoRouter(
     }
 
     try {
-      final doc = await Supabase.instance.client
-          .from('profiles')
-          .select('two_fa_enabled, onboarding_completed, is_approved')
-          .eq('id', user.id)
-          .maybeSingle()
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get()
           .timeout(const Duration(seconds: 5));
 
-      final has2FA = doc?['two_fa_enabled'] ?? false;
-      final hasOnboarding = doc?['onboarding_completed'] ?? false;
-      final isApproved = doc?['is_approved'] ?? false;
+      final has2FA = doc.data()?['twoFAEnabled'] ?? false;
+      final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
+      final isApproved = doc.data()?['isApproved'] ?? false;
 
       if (!has2FA) {
         return '/twofa';

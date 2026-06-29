@@ -1,6 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/shift_model.dart';
 import '../../providers/shift_provider.dart';
@@ -18,7 +19,7 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = Supabase.instance.client.auth.currentUser;
+    final user = FirebaseAuth.instance.currentUser;
     final roleAsync = ref.watch(userRoleProvider);
     final shiftsAsync = ref.watch(shiftsProvider);
 
@@ -83,7 +84,7 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
                 itemCount: shifts.length,
                 itemBuilder: (context, index) {
                   final shift = shifts[index];
-                  final isAssignedToMe = shift.assignedTo == user?.id;
+                  final isAssignedToMe = shift.assignedTo == user?.uid;
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -180,14 +181,14 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final user = Supabase.instance.client.auth.currentUser;
+      final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      await Supabase.instance.client.from('shifts').update({
-        'assigned_to': user.id,
-        'assigned_to_name': user.email,
-        'is_available': false,
-      }).eq('id', shiftId);
+      await FirebaseFirestore.instance.collection('shifts').doc(shiftId).update({
+        'assignedTo': user.uid,
+        'assignedToName': user.email,
+        'isAvailable': false,
+      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Shift assigned to you!')),
@@ -205,11 +206,11 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await Supabase.instance.client.from('shifts').update({
-        'assigned_to': null,
-        'assigned_to_name': '',
-        'is_available': true,
-      }).eq('id', shiftId);
+      await FirebaseFirestore.instance.collection('shifts').doc(shiftId).update({
+        'assignedTo': null,
+        'assignedToName': '',
+        'isAvailable': true,
+      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Shift dropped!')),
@@ -247,7 +248,7 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
       setState(() => _isLoading = true);
 
       try {
-        await Supabase.instance.client.from('shifts').delete().eq('id', shiftId);
+        await FirebaseFirestore.instance.collection('shifts').doc(shiftId).delete();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Shift deleted!')),
         );
@@ -346,22 +347,21 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
                   return;
                 }
 
-                await Supabase.instance.client.from('shifts').insert({
+                await FirebaseFirestore.instance.collection('shifts').add({
                   'title': titleController.text,
-                  'start_time': startTime.toIso8601String(),
-                  'end_time': endTime.toIso8601String(),
-                  'assigned_to': null,
-                  'assigned_to_name': '',
+                  'startTime': startTime,
+                  'endTime': endTime,
+                  'assignedTo': null,
+                  'assignedToName': '',
                   'role': 'Staff',
-                  'is_available': true,
+                  'isAvailable': true,
+                  'createdAt': FieldValue.serverTimestamp(),
                 });
 
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Shift created!')),
-                  );
-                }
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Shift created!')),
+                );
               },
               child: const Text('Create'),
             ),
@@ -449,18 +449,19 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                await Supabase.instance.client.from('shifts').update({
+                await FirebaseFirestore.instance
+                    .collection('shifts')
+                    .doc(shift.id)
+                    .update({
                   'title': titleController.text,
-                  'start_time': startTime.toIso8601String(),
-                  'end_time': endTime.toIso8601String(),
-                }).eq('id', shift.id);
+                  'startTime': startTime,
+                  'endTime': endTime,
+                });
 
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Shift updated!')),
-                  );
-                }
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Shift updated!')),
+                );
               },
               child: const Text('Update'),
             ),

@@ -1,6 +1,8 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
+import '../dashboard/dashboard_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -70,24 +72,31 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     setState(() => isLoading = true);
 
     try {
-      final user = Supabase.instance.client.auth.currentUser;
+      final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         throw Exception('Not logged in');
       }
 
-      await Supabase.instance.client.from('profiles').upsert({
-        'id': user.id,
-        'restaurant_name': restaurantNameController.text.trim(),
-        'phone': phoneController.text.trim(),
-        'address': addressController.text.trim(),
-        'role': selectedRole!,
-        'cuisine_type': selectedCuisine!,
-        'table_count': tableCount,
-        'onboarding_completed': true,
-        'email': user.email,
-        'restaurant_id': user.id,
-        'is_approved': false, // default to NOT approved
-      });
+      // 🔥 Generate restaurantId from the user's UID
+      final restaurantId = user.uid;
+
+      // Inside _saveOnboarding()
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+        {
+          'restaurantName': restaurantNameController.text.trim(),
+          'phone': phoneController.text.trim(),
+          'address': addressController.text.trim(),
+          'role': selectedRole!,
+          'cuisineType': selectedCuisine!,
+          'tableCount': tableCount,
+          'onboardingCompleted': true,
+          'email': user.email,
+          'restaurantId': user.uid,
+          'isApproved': false, // 🔥 ADD THIS — default to NOT approved
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
