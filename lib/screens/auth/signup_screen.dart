@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -17,8 +18,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
   bool isLoading = false;
-
-  final supabase = Supabase.instance.client;
 
   Future<void> _signUp() async {
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
