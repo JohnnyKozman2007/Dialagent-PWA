@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
+  throw UnimplementedError('sharedPreferencesProvider must be overridden in main()');
+});
 
 final themeModeProvider = StateNotifierProvider<ThemeNotifier, ThemeMode>((ref) {
   return ThemeNotifier(ref);
@@ -9,45 +12,56 @@ final themeModeProvider = StateNotifierProvider<ThemeNotifier, ThemeMode>((ref) 
 
 class ThemeNotifier extends StateNotifier<ThemeMode> {
   final Ref ref;
+  static const _themeKey = 'theme_mode';
 
-  ThemeNotifier(this.ref) : super(ThemeMode.light) {
-    _loadThemeFromFirestore();
+  ThemeNotifier(this.ref) : super(ThemeMode.system) {
+    _loadThemeFromPrefs();
   }
 
-  Future<void> _loadThemeFromFirestore() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
+  void _loadThemeFromPrefs() {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      final isDark = doc.data()?['darkMode'] ?? false;
-      state = isDark ? ThemeMode.dark : ThemeMode.light;
+      final prefs = ref.read(sharedPreferencesProvider);
+      final themeStr = prefs.getString(_themeKey);
+      if (themeStr == 'dark') {
+        state = ThemeMode.dark;
+      } else if (themeStr == 'light') {
+        state = ThemeMode.light;
+      } else {
+        state = ThemeMode.system;
+      }
     } catch (e) {
-      print('Error loading theme: $e');
+      print('Error loading theme from prefs: $e');
+      state = ThemeMode.system;
+    }
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    state = mode;
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      final String themeStr;
+      if (mode == ThemeMode.dark) {
+        themeStr = 'dark';
+      } else if (mode == ThemeMode.light) {
+        themeStr = 'light';
+      } else {
+        themeStr = 'system';
+      }
+      await prefs.setString(_themeKey, themeStr);
+    } catch (e) {
+      print('Error saving theme to prefs: $e');
     }
   }
 
   Future<void> toggleTheme() async {
-    final newMode = state == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
-    state = newMode;
-
-    // Save to Firestore
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({
-          'darkMode': newMode == ThemeMode.dark,
-        });
-      } catch (e) {
-        print('Error saving theme: $e');
-      }
+    final ThemeMode newMode;
+    if (state == ThemeMode.system) {
+      newMode = ThemeMode.light;
+    } else if (state == ThemeMode.light) {
+      newMode = ThemeMode.dark;
+    } else {
+      newMode = ThemeMode.system;
     }
+    await setThemeMode(newMode);
   }
 }

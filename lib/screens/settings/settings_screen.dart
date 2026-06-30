@@ -150,11 +150,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               // --- Appearance Section ---
               _buildSectionHeader('🎨 Appearance'),
               _buildSettingsTile(
-                icon: themeMode == ThemeMode.dark ? Icons.dark_mode : Icons.light_mode,
-                title: themeMode == ThemeMode.dark ? 'Dark Mode' : 'Light Mode',
-                subtitle: themeMode == ThemeMode.dark ? 'Dark theme enabled' : 'Light theme enabled',
-                onTap: () => ref.read(themeModeProvider.notifier).toggleTheme(),
-                color: themeMode == ThemeMode.dark ? Colors.purple : Colors.amber,
+                icon: themeMode == ThemeMode.dark
+                    ? Icons.dark_mode
+                    : (themeMode == ThemeMode.light ? Icons.light_mode : Icons.brightness_auto),
+                title: 'Theme Mode',
+                subtitle: themeMode == ThemeMode.dark
+                    ? 'Dark Mode'
+                    : (themeMode == ThemeMode.light ? 'Light Mode' : 'System Default'),
+                onTap: () => _showThemeModePicker(context),
+                color: themeMode == ThemeMode.dark
+                    ? Colors.purple
+                    : (themeMode == ThemeMode.light ? Colors.amber : Colors.blueGrey),
               ),
               const SizedBox(height: 16),
 
@@ -636,6 +642,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 }
               },
               child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- Theme Mode Picker Bottom Sheet ---
+  void _showThemeModePicker(BuildContext context) {
+    final currentMode = ref.read(themeModeProvider);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Select Theme Mode',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.brightness_auto, color: Colors.blueGrey),
+              title: const Text('System Default'),
+              subtitle: const Text('Matches system theme (Light/Dark)'),
+              trailing: currentMode == ThemeMode.system
+                  ? const Icon(Icons.check, color: Colors.green)
+                  : null,
+              onTap: () {
+                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.system);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.light_mode, color: Colors.amber),
+              title: const Text('Light Mode'),
+              subtitle: const Text('Always use light theme'),
+              trailing: currentMode == ThemeMode.light
+                  ? const Icon(Icons.check, color: Colors.green)
+                  : null,
+              onTap: () {
+                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.light);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.dark_mode, color: Colors.purple),
+              title: const Text('Dark Mode'),
+              subtitle: const Text('Always use dark theme'),
+              trailing: currentMode == ThemeMode.dark
+                  ? const Icon(Icons.check, color: Colors.green)
+                  : null,
+              onTap: () {
+                ref.read(themeModeProvider.notifier).setThemeMode(ThemeMode.dark);
+                Navigator.pop(context);
+              },
             ),
           ],
         ),

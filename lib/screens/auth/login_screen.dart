@@ -3,16 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/user_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../utils/session_storage.dart';
-import '../onboarding/onboarding_screen.dart';
-import '../twofa/twofa_setup_screen.dart';
-import '../twofa/twofa_verify_screen.dart';
-import '../dashboard/dashboard_screen.dart';
 import 'signup_screen.dart';
 import 'recovery_screen.dart';
-import 'pending_approval_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -47,7 +42,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       final has2FA = doc.data()?['twoFAEnabled'] ?? false;
       final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
-      final isVerified = doc.data()?['isVerified'] ?? false;
+      final isApproved = doc.data()?['isApproved'] ?? false;
       final role = doc.data()?['role'] ?? 'Staff';
 
       if (!mounted) return;
@@ -56,7 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         context.go('/twofa');
       } else if (!hasOnboarding) {
         context.go('/onboarding');
-      } else if (role == 'Owner' && !isVerified) {
+      } else if (role == 'Owner' && !isApproved) {
         context.go('/pending-approval');
       } else {
         context.go('/dashboard');
@@ -99,14 +94,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
         final has2FA = doc.data()?['twoFAEnabled'] ?? false;
         final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
-        final isVerified = doc.data()?['isVerified'] ?? false;
+        final isApproved = doc.data()?['isApproved'] ?? false;
         final role = doc.data()?['role'] ?? 'Staff';
 
         if (!has2FA) {
           context.go('/twofa');
         } else if (!hasOnboarding) {
           context.go('/onboarding');
-        } else if (role == 'Owner' && !isVerified) {
+        } else if (role == 'Owner' && !isApproved) {
           context.go('/pending-approval');
         } else {
           context.go('/dashboard');
@@ -128,75 +123,68 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🔥 FORCE LIGHT THEME ON LOGIN SCREEN
-    return Theme(
-      data: ThemeData.light().copyWith(
-        useMaterial3: true,
-        colorScheme: const ColorScheme.light(primary: Colors.green),
-      ),
-      child: Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Card(
-              elevation: 8,
-              child: Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.restaurant, size: 64, color: Colors.green),
-                    const SizedBox(height: 20),
-                    const Text('Welcome Back', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 30),
-                    TextField(
-                      controller: emailController,
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        prefixIcon: const Icon(Icons.email),
-                      ),
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Card(
+            elevation: 8,
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.restaurant, size: 64, color: Colors.green),
+                  const SizedBox(height: 20),
+                  const Text('Welcome Back', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 30),
+                  TextField(
+                    controller: emailController,
+                    decoration: InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      prefixIcon: const Icon(Icons.email),
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: passwordController,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        prefixIcon: const Icon(Icons.lock),
-                      ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      prefixIcon: const Icon(Icons.lock),
                     ),
-                    const SizedBox(height: 24),
-                    isLoading
-                        ? const CircularProgressIndicator()
-                        : ElevatedButton(
-                            onPressed: _login,
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 50),
-                            ),
-                            child: const Text('LOGIN', style: TextStyle(fontSize: 16)),
+                  ),
+                  const SizedBox(height: 24),
+                  isLoading
+                      ? const CircularProgressIndicator()
+                      : ElevatedButton(
+                          onPressed: _login,
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 50),
                           ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const RecoveryScreen()),
-                        );
-                      },
-                      child: const Text('Forgot Password?'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const SignUpScreen()),
-                        );
-                      },
-                      child: const Text('Create an account'),
-                    ),
-                  ],
-                ),
+                          child: const Text('LOGIN', style: TextStyle(fontSize: 16)),
+                        ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const RecoveryScreen()),
+                      );
+                    },
+                    child: const Text('Forgot Password?'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SignUpScreen()),
+                      );
+                    },
+                    child: const Text('Create an account'),
+                  ),
+                ],
               ),
             ),
           ),

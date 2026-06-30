@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/user_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../utils/session_storage.dart';
 
 // --------------------------------------------
@@ -12,6 +13,29 @@ class AgenticEngine {
   static AgenticConfig getConfig(String role) {
     final now = DateTime.now();
     final hour = now.hour;
+
+    // --- ADMIN CONFIG ---
+    if (role == 'Admin') {
+      return AgenticConfig(
+        role: role,
+        greeting: _getGreeting(hour, 'Admin'),
+        themeColor: Colors.deepPurple,
+        cards: [
+          DashboardCard(
+            title: '🏢 Restaurant Applications',
+            subtitle: 'Review and approve/reject new restaurant sign-ups',
+            icon: Icons.business,
+            route: '/admin/applications',
+          ),
+          DashboardCard(
+            title: '⚙️ Settings',
+            subtitle: 'Update admin settings',
+            icon: Icons.settings,
+            route: '/settings',
+          ),
+        ],
+      );
+    }
 
     // --- OWNER CONFIG ---
     if (role == 'Owner') {

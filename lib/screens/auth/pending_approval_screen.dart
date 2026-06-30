@@ -11,6 +11,9 @@ class PendingApprovalScreen extends StatefulWidget {
 }
 
 class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
+  bool _isRejected = false;
+  String? _rejectionReason;
+
   @override
   void initState() {
     super.initState();
@@ -31,8 +34,16 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
         .listen((doc) {
       if (!mounted) return;
       final isApproved = doc.data()?['isApproved'] ?? false;
+      final isRejected = doc.data()?['isRejected'] ?? false;
+      final reason = doc.data()?['rejectionReason'] as String?;
+
       if (isApproved) {
         context.go('/dashboard');
+      } else {
+        setState(() {
+          _isRejected = isRejected;
+          _rejectionReason = reason;
+        });
       }
     });
   }
@@ -41,8 +52,8 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Account Pending'),
-        backgroundColor: Colors.green,
+        title: Text(_isRejected ? 'Account Rejected' : 'Account Pending'),
+        backgroundColor: _isRejected ? Colors.red : Colors.green,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -52,23 +63,54 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.hourglass_empty, size: 80, color: Colors.orange),
-              const SizedBox(height: 24),
-              const Text(
-                'Your account is pending approval',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Our team is reviewing your account.\nYou will receive access once approved.\nThis usually takes 24-48 hours.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
+              if (_isRejected) ...[
+                const Icon(Icons.cancel, size: 80, color: Colors.red),
+                const SizedBox(height: 24),
+                const Text(
+                  'Your application was rejected',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                if (_rejectionReason != null && _rejectionReason!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      'Reason: $_rejectionReason',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 16, color: Colors.red, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                const Text(
+                  'Please contact support or re-register with valid information.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ] else ...[
+                const Icon(Icons.hourglass_empty, size: 80, color: Colors.orange),
+                const SizedBox(height: 24),
+                const Text(
+                  'Your account is pending approval',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Our team is reviewing your account.\nYou will receive access once approved.\nThis usually takes 24-48 hours.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ],
               const SizedBox(height: 32),
               ElevatedButton.icon(
                 onPressed: () {
-                  // The listener will catch the change automatically
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Checking approval status...')),
                   );

@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
+import '../../services/email_service.dart';
 
 class InviteScreen extends StatefulWidget {
   const InviteScreen({super.key});
@@ -86,9 +87,15 @@ class _InviteScreenState extends State<InviteScreen> {
         'createdBy': user.uid,
       });
 
+      // Send invitation email via SMTP EmailService
+      await EmailService.sendInvitation(
+        recipientEmail: email,
+        role: selectedRole,
+      );
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✅ Invite sent to $email as $selectedRole'),
+          content: Text('✅ Invitation email successfully sent to $email!'),
           backgroundColor: Colors.green,
         ),
       );
