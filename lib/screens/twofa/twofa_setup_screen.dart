@@ -1,21 +1,21 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:async';
 import 'package:go_router/go_router.dart';
 import '../../utils/totp_util.dart';
-import '../onboarding/onboarding_screen.dart';
-import '../dashboard/dashboard_screen.dart';
+import '../../utils/session_storage.dart';
+import '../../providers/auth_provider.dart';
 
-class TwoFASetupScreen extends StatefulWidget {
+class TwoFASetupScreen extends ConsumerStatefulWidget {
   const TwoFASetupScreen({super.key});
 
   @override
-  State<TwoFASetupScreen> createState() => _TwoFASetupScreenState();
+  ConsumerState<TwoFASetupScreen> createState() => _TwoFASetupScreenState();
 }
 
-class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
+class _TwoFASetupScreenState extends ConsumerState<TwoFASetupScreen> {
   String? secretKey;
   String verificationCode = '';
   bool isVerified = false;
@@ -45,22 +45,22 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
       )).timeout(const Duration(seconds: 3));
 
       if (isValid) {
-        final user = FirebaseAuth.instance.currentUser;
+        final user = Supabase.instance.client.auth.currentUser;
         if (user != null) {
           setState(() => isSaving = true);
           try {
-            await FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .set(
-                  {
-                    'twoFAEnabled': true,
-                    'twoFASecret': secretKey,
-                  },
-                  SetOptions(merge: true),
-                )
+            await Supabase.instance.client
+                .from('profiles')
+                .upsert({
+                  'id': user.id,
+                  'two_fa_enabled': true,
+                  'two_fa_secret': secretKey,
+                  'email': user.email ?? '',
+                })
                 .timeout(const Duration(seconds: 5));
 
+            ref.read(twoFAVerifiedProvider.notifier).state = true;
+            SessionStorage.setTwoFAVerified(true);
             setState(() {
               isVerified = true;
               isSaving = false;
@@ -73,12 +73,16 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('⚠️ Network slow. 2FA enabled but not saved.')),
             );
+            ref.read(twoFAVerifiedProvider.notifier).state = true;
+            SessionStorage.setTwoFAVerified(true);
             setState(() => isVerified = true);
           } catch (e) {
             setState(() => isSaving = false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Error saving 2FA: $e')),
             );
+            ref.read(twoFAVerifiedProvider.notifier).state = true;
+            SessionStorage.setTwoFAVerified(true);
             setState(() => isVerified = true);
           }
         }
@@ -100,33 +104,14 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
     setState(() => isLoading = false);
   }
 
-  Future<void> _checkOnboarding() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      final hasOnboarding = doc.data()?['onboardingCompleted'] ?? false;
-
-      if (!hasOnboarding) {
-        context.go('/onboarding');
-      } else {
-        context.go('/dashboard');
-      }
-    } catch (e) {
-      context.go('/onboarding');
-    }
+  void _continueToNextStep() {
+    // 🔥 Just go to /dashboard — the router redirect will intercept
+    // and send the user to /onboarding if they haven't completed it yet
+    context.go('/dashboard');
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final account = user?.email ?? 'user@restaurant.com';
-
     final otpUri = TOTPUtil.getQRCodeUrl(
       appName: 'RestaurantApp',
       secretKey: secretKey!,
@@ -136,8 +121,17 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Set up 2FA'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await Supabase.instance.client.auth.signOut();
+              if (mounted) {
+                context.go('/login');
+              }
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -267,7 +261,7 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
                 const Text('Your account is now more secure.'),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: _checkOnboarding,
+                  onPressed: _continueToNextStep,
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
                   ),

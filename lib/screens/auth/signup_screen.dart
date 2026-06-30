@@ -1,10 +1,8 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/user_provider.dart';
-import '../twofa/twofa_setup_screen.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -39,174 +37,236 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       final email = emailController.text.trim().toLowerCase();
 
       // 🔍 Check for an invite
-      final inviteQuery = await FirebaseFirestore.instance
-          .collection('invites')
-          .where('email', isEqualTo: email)
-          .where('used', isEqualTo: false)
-          .limit(1)
-          .get();
+      final invite = await Supabase.instance.client
+          .from('invites')
+          .select()
+          .eq('email', email)
+          .eq('used', false)
+          .maybeSingle();
 
-      // If NO invite, check if it's the first user (Owner)
-      if (inviteQuery.docs.isEmpty) {
-        final usersSnapshot = await FirebaseFirestore.instance
-            .collection('users')
-            .limit(1)
-            .get();
+      // If NO invite, check if it's the first user (Owner) OR if it's an admin email!
+      final adminEmails = ['jg202501127@gaf.ac'];
+      final isAdminEmail = adminEmails.contains(email);
 
-        if (usersSnapshot.docs.isEmpty) {
-          // ✅ First user ever → Owner (needs manual approval)
-          final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-            email: email,
-            password: passwordController.text.trim(),
-          );
+      if (invite == null) {
+        final profilesQuery = await Supabase.instance.client
+            .from('profiles')
+            .select('id')
+            .limit(1);
 
-          await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+        final isFirstUser = profilesQuery.isEmpty;
+        final autoApprove = isFirstUser || isAdminEmail;
+
+        final response = await Supabase.instance.client.auth.signUp(
+          email: email,
+          password: passwordController.text.trim(),
+        );
+
+        final newUser = response.user;
+        if (newUser == null) throw Exception("Failed to sign up user");
+
+        try {
+          await Supabase.instance.client.from('profiles').insert({
+            'id': newUser.id,
             'email': email,
             'role': 'Owner',
-            'restaurantId': userCredential.user!.uid,
-            'restaurantName': '',
+            'restaurant_id': newUser.id,
+            'restaurant_name': '',
             'phone': '',
             'address': '',
-            'onboardingCompleted': false,
-            'twoFAEnabled': false,
-            'isApproved': false,
-            'createdAt': FieldValue.serverTimestamp(),
+            'onboarding_completed': autoApprove,
+            'two_fa_enabled': false,
+            'is_approved': autoApprove,
+            'created_at': DateTime.now().toIso8601String(),
           });
-
-          // Invalidate providers so the dashboard fetches fresh data
-          ref.invalidate(userProvider);
-          ref.invalidate(userRoleProvider);
-
-          context.go('/twofa');
-          setState(() => isLoading = false);
-          return;
-        } else {
-          // ❌ Users exist but no invite
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You are not authorized to create an account. Please contact the restaurant owner.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          setState(() => isLoading = false);
-          return;
+        } catch (e) {
+          debugPrint('Profile insert skipped or failed (likely email already registered): $e');
         }
+
+        ref.invalidate(userProvider);
+        ref.invalidate(userRoleProvider);
+
+        // 🔥 If already signed in (email confirmation disabled), go straight to dashboard.
+        // Otherwise, show "Check your email" dialog.
+        setState(() => isLoading = false);
+        if (mounted) {
+          if (response.session != null) {
+            context.go('/dashboard');
+          } else {
+            _showCheckEmailDialog(email);
+          }
+        }
+        return;
       }
 
       // ✅ Invite exists → Staff or Manager (auto-approved)
-      final inviteDoc = inviteQuery.docs.first;
-      final role = inviteDoc.data()['role'] ?? 'Staff';
-      final restaurantId = inviteDoc.data()['restaurantId'] ?? '';
+      final role = invite['role'] ?? 'Staff';
+      final restaurantId = invite['restaurant_id'] ?? '';
 
       // Create the user
-      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final response = await Supabase.instance.client.auth.signUp(
         email: email,
         password: passwordController.text.trim(),
       );
 
+      final newUser = response.user;
+      if (newUser == null) throw Exception("Failed to sign up user");
+
       // 🔥 SAVE USER WITH SKIPPED ONBOARDING AND AUTO-APPROVED
-      await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
-        'email': email,
-        'role': role,
-        'restaurantId': restaurantId.isNotEmpty ? restaurantId : userCredential.user!.uid,
-        'restaurantName': '',
-        'phone': '',
-        'address': '',
-        'onboardingCompleted': true,
-        'twoFAEnabled': false,
-        'isApproved': true,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      try {
+        await Supabase.instance.client.from('profiles').insert({
+          'id': newUser.id,
+          'email': email,
+          'role': role,
+          'restaurant_id': restaurantId.isNotEmpty ? restaurantId : newUser.id,
+          'restaurant_name': '',
+          'phone': '',
+          'address': '',
+          'onboarding_completed': true,
+          'two_fa_enabled': false,
+          'is_approved': true,
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      } catch (e) {
+        debugPrint('Profile insert skipped or failed (likely email already registered): $e');
+      }
 
       // Mark invite as used
-      await inviteDoc.reference.update({'used': true});
+      await Supabase.instance.client
+          .from('invites')
+          .update({'used': true})
+          .eq('id', invite['id']);
 
-      // 🔥 Invalidate providers so the dashboard fetches the correct role
       ref.invalidate(userProvider);
       ref.invalidate(userRoleProvider);
 
-      // Go to 2FA setup (then directly to dashboard)
-      context.go('/twofa');
-    } on FirebaseAuthException catch (e) {
-      String message = 'Sign-up failed';
-      if (e.code == 'email-already-in-use') message = 'Email already registered';
-      if (e.code == 'weak-password') message = 'Password is too weak';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      // 🔥 If already signed in (email confirmation disabled), go straight to dashboard.
+      // Otherwise, show "Check your email" dialog.
+      setState(() => isLoading = false);
+      if (mounted) {
+        if (response.session != null) {
+          context.go('/dashboard');
+        } else {
+          _showCheckEmailDialog(email);
+        }
+      }
+      return;
+    } on AuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
 
-    setState(() => isLoading = false);
+     setState(() => isLoading = false);
+  }
+
+  // 🔥 Show a "Check your email" confirmation dialog after signup
+  void _showCheckEmailDialog(String email) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        icon: const Icon(Icons.mark_email_read, size: 56, color: Colors.green),
+        title: const Text('Check Your Email'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'We sent a confirmation link to:',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              email,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Click the link in the email to verify your account. After verifying, come back here and log in to continue setup.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Supabase.instance.client.auth.signOut();
+              if (ctx.mounted) {
+                Navigator.of(ctx).pop();
+                context.go('/login');
+              }
+            },
+            child: const Text('GOT IT — GO TO LOGIN', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: ThemeData.light().copyWith(
-        useMaterial3: true,
-        colorScheme: const ColorScheme.light(primary: Colors.green),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Create Account'),
       ),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Create Account'),
-          backgroundColor: Colors.green,
-          foregroundColor: Colors.white,
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32.0),
-            child: Card(
-              elevation: 8,
-              child: Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.person_add, size: 64, color: Colors.green),
-                    const SizedBox(height: 20),
-                    const Text('Sign Up', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 30),
-                    TextField(
-                      controller: emailController,
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Card(
+            elevation: 8,
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.person_add, size: 64, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(height: 20),
+                  const Text('Sign Up', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 30),
+                  TextField(
+                    controller: emailController,
+                    decoration: InputDecoration(
+                      labelText: 'Email',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: passwordController,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: confirmPasswordController,
-                      obscureText: true,
-                      decoration: InputDecoration(
-                        labelText: 'Confirm Password',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: confirmPasswordController,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'Confirm Password',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    const SizedBox(height: 24),
-                    isLoading
-                        ? const CircularProgressIndicator()
-                        : ElevatedButton(
-                            onPressed: _signUp,
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(double.infinity, 50),
-                            ),
-                            child: const Text('SIGN UP', style: TextStyle(fontSize: 16)),
+                  ),
+                  const SizedBox(height: 24),
+                  isLoading
+                      ? const CircularProgressIndicator()
+                      : ElevatedButton(
+                          onPressed: _signUp,
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 50),
                           ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Already have an account? Login'),
-                    ),
-                  ],
-                ),
+                          child: const Text('SIGN UP', style: TextStyle(fontSize: 16)),
+                        ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Already have an account? Login'),
+                  ),
+                ],
               ),
             ),
           ),

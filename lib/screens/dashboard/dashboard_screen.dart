@@ -1,4 +1,4 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -52,6 +52,12 @@ class AgenticEngine {
             route: '/tasks',
           ),
           DashboardCard(
+            title: '📖 Menu Management',
+            subtitle: 'Manage items and categories',
+            icon: Icons.restaurant_menu,
+            route: '/menu',
+          ),
+          DashboardCard(
             title: '⚙️ Settings',
             subtitle: 'Update business info',
             icon: Icons.settings,
@@ -100,6 +106,12 @@ class AgenticEngine {
             route: null,
           ),
           DashboardCard(
+            title: '📖 Menu Management',
+            subtitle: 'Manage items and categories',
+            icon: Icons.restaurant_menu,
+            route: '/menu',
+          ),
+          DashboardCard(
             title: '⚙️ Settings',
             subtitle: 'Update business info',
             icon: Icons.settings,
@@ -120,7 +132,7 @@ class AgenticEngine {
             title: '📖 Today\'s Menu',
             subtitle: 'View dishes and specials',
             icon: Icons.menu_book,
-            route: null,
+            route: '/menu',
           ),
           DashboardCard(
             title: '⏰ My Shifts',
@@ -208,14 +220,12 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     final roleAsync = ref.watch(userRoleProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -245,7 +255,7 @@ class DashboardScreen extends ConsumerWidget {
               if (confirm == true) {
                 ref.invalidate(userProvider);
                 ref.invalidate(userRoleProvider);
-                await FirebaseAuth.instance.signOut();
+                await Supabase.instance.client.auth.signOut();
                 if (context.mounted) {
                   context.go('/login');
                 }

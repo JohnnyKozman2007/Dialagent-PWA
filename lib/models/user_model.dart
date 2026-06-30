@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'permissions.dart';
 
 class UserModel {
@@ -17,6 +16,7 @@ class UserModel {
   final DateTime createdAt;
   final UserPermissions permissions;
   final bool isApproved;
+  final String? stripeMerchandiseId;
 
   UserModel({
     required this.uid,
@@ -34,47 +34,56 @@ class UserModel {
     required this.createdAt,
     this.permissions = const UserPermissions(),
     this.isApproved = false,
+    this.stripeMerchandiseId,
   });
 
   Map<String, dynamic> toMap() {
     return {
-      'uid': uid,
+      'id': uid,
       'email': email,
       'role': role,
-      'restaurantName': restaurantName,
-      'restaurantId': restaurantId,
+      'restaurant_name': restaurantName,
+      'restaurant_id': restaurantId,
       'phone': phone,
       'address': address,
-      'cuisineType': cuisineType,
-      'tableCount': tableCount,
-      'onboardingCompleted': onboardingCompleted,
-      'twoFAEnabled': twoFAEnabled,
-      'twoFASecret': twoFASecret,
-      'createdAt': createdAt,
+      'cuisine_type': cuisineType,
+      'table_count': tableCount,
+      'onboarding_completed': onboardingCompleted,
+      'two_fa_enabled': twoFAEnabled,
+      'two_fa_secret': twoFASecret,
+      'created_at': createdAt.toIso8601String(),
       'permissions': permissions.toMap(),
-      'isApproved': isApproved,
+      'is_approved': isApproved,
+      'stripe_merchandise_id': stripeMerchandiseId,
     };
   }
 
   factory UserModel.fromMap(String uid, Map<String, dynamic> map) {
+    DateTime parseDateTime(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is DateTime) return value;
+      if (value is String) return DateTime.parse(value);
+      return DateTime.now();
+    }
     return UserModel(
       uid: uid,
       email: map['email'] ?? '',
       role: map['role'] ?? 'Staff',
-      restaurantName: map['restaurantName'] ?? '',
-      restaurantId: map['restaurantId'] ?? '',
+      restaurantName: map['restaurant_name'] ?? '',
+      restaurantId: map['restaurant_id'] ?? '',
       phone: map['phone'],
       address: map['address'],
-      cuisineType: map['cuisineType'],
-      tableCount: map['tableCount'],
-      onboardingCompleted: map['onboardingCompleted'] ?? false,
-      twoFAEnabled: map['twoFAEnabled'] ?? false,
-      twoFASecret: map['twoFASecret'],
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      cuisineType: map['cuisine_type'],
+      tableCount: map['table_count'],
+      onboardingCompleted: map['onboarding_completed'] ?? false,
+      twoFAEnabled: map['two_fa_enabled'] ?? false,
+      twoFASecret: map['two_fa_secret'],
+      createdAt: parseDateTime(map['created_at']),
       permissions: map['permissions'] != null
           ? UserPermissions.fromMap(map['permissions'])
           : UserPermissions.staffPermissions(),
-      isApproved: map['isApproved'] ?? false,
+      isApproved: map['is_approved'] ?? false,
+      stripeMerchandiseId: map['stripe_merchandise_id'],
     );
   }
 }

@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class ShiftModel {
   final String id;
   final String title;
@@ -26,27 +24,33 @@ class ShiftModel {
   Map<String, dynamic> toMap() {
     return {
       'title': title,
-      'startTime': startTime,
-      'endTime': endTime,
-      'assignedTo': assignedTo,
-      'assignedToName': assignedToName,
+      'start_time': startTime.toIso8601String(),
+      'end_time': endTime.toIso8601String(),
+      'assigned_to': assignedTo,
+      'assigned_to_name': assignedToName,
       'role': role,
-      'isAvailable': isAvailable,
-      'createdAt': createdAt,
+      'is_available': isAvailable,
+      'created_at': createdAt.toIso8601String(),
     };
   }
 
   factory ShiftModel.fromMap(String id, Map<String, dynamic> map) {
+    DateTime parseDateTime(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is DateTime) return value;
+      if (value is String) return DateTime.parse(value);
+      return DateTime.now();
+    }
     return ShiftModel(
       id: id,
       title: map['title'] ?? '',
-      startTime: (map['startTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      endTime: (map['endTime'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      assignedTo: map['assignedTo'],
-      assignedToName: map['assignedToName'] ?? '',
+      startTime: parseDateTime(map['start_time']),
+      endTime: parseDateTime(map['end_time']),
+      assignedTo: map['assigned_to'],
+      assignedToName: map['assigned_to_name'] ?? '',
       role: map['role'] ?? 'Staff',
-      isAvailable: map['isAvailable'] ?? true,
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isAvailable: map['is_available'] ?? true,
+      createdAt: parseDateTime(map['created_at']),
     );
   }
 }

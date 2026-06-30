@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/task_model.dart';
-import '../models/user_model.dart';
 import 'user_provider.dart';
 
 final tasksStreamProvider = StreamProvider<List<Task>>((ref) {
@@ -12,13 +11,12 @@ final tasksStreamProvider = StreamProvider<List<Task>>((ref) {
     return Stream.value([]);
   }
 
-  // 🔥 Now that the index is deployed, we use orderBy for server-side sorting
-  return FirebaseFirestore.instance
-      .collection('tasks')
-      .where('restaurantId', isEqualTo: restaurantId)
-      .orderBy('createdAt', descending: true)
-      .snapshots()
-      .map((snapshot) => snapshot.docs
-          .map((doc) => Task.fromFirestore(doc))
+  return Supabase.instance.client
+      .from('tasks')
+      .stream(primaryKey: ['id'])
+      .eq('restaurant_id', restaurantId)
+      .order('created_at', ascending: false)
+      .map((list) => list
+          .map((map) => Task.fromMap(map['id'] as String, map))
           .toList());
 });

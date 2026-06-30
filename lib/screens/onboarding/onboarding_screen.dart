@@ -1,8 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
-import '../dashboard/dashboard_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -17,6 +15,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final restaurantNameController = TextEditingController();
   final phoneController = TextEditingController();
   final addressController = TextEditingController();
+  final stripeIdController = TextEditingController();
 
   String? selectedRole;
   String? selectedCuisine;
@@ -35,6 +34,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     restaurantNameController.dispose();
     phoneController.dispose();
     addressController.dispose();
+    stripeIdController.dispose();
     super.dispose();
   }
 
@@ -72,31 +72,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     setState(() => isLoading = true);
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final user = Supabase.instance.client.auth.currentUser;
       if (user == null) {
         throw Exception('Not logged in');
       }
 
-      // 🔥 Generate restaurantId from the user's UID
-      final restaurantId = user.uid;
-
-      // Inside _saveOnboarding()
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
-        {
-          'restaurantName': restaurantNameController.text.trim(),
-          'phone': phoneController.text.trim(),
-          'address': addressController.text.trim(),
-          'role': selectedRole!,
-          'cuisineType': selectedCuisine!,
-          'tableCount': tableCount,
-          'onboardingCompleted': true,
-          'email': user.email,
-          'restaurantId': user.uid,
-          'isApproved': false, // 🔥 ADD THIS — default to NOT approved
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      await Supabase.instance.client.from('profiles').upsert({
+        'id': user.id,
+        'restaurant_name': restaurantNameController.text.trim(),
+        'phone': phoneController.text.trim(),
+        'address': addressController.text.trim(),
+        'role': selectedRole!,
+        'cuisine_type': selectedCuisine!,
+        'table_count': tableCount,
+        'onboarding_completed': true,
+        'email': user.email,
+        'restaurant_id': user.id,
+        'is_approved': false, // 🔥 ADD THIS — default to NOT approved
+        'stripe_merchandise_id': stripeIdController.text.trim(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -125,9 +120,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Restaurant Setup'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await Supabase.instance.client.auth.signOut();
+              if (mounted) {
+                context.go('/login');
+              }
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -235,6 +238,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   }
                   return null;
                 },
+              ),
+              const SizedBox(height: 20),
+
+              // Stripe Merchandise ID
+              const Text(
+                'Stripe Merchandise ID',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: stripeIdController,
+                decoration: InputDecoration(
+                  hintText: 'e.g., "prod_..." or "acct_..."',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.payment),
+                ),
               ),
               const SizedBox(height: 20),
 
