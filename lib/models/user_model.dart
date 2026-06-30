@@ -17,6 +17,8 @@ class UserModel {
   final DateTime createdAt;
   final UserPermissions permissions;
   final bool isApproved;
+  final bool isRejected;
+  final String? rejectionReason;
 
   UserModel({
     required this.uid,
@@ -34,6 +36,8 @@ class UserModel {
     required this.createdAt,
     this.permissions = const UserPermissions(),
     this.isApproved = false,
+    this.isRejected = false,
+    this.rejectionReason,
   });
 
   Map<String, dynamic> toMap() {
@@ -53,6 +57,8 @@ class UserModel {
       'createdAt': createdAt,
       'permissions': permissions.toMap(),
       'isApproved': isApproved,
+      'isRejected': isRejected,
+      'rejectionReason': rejectionReason,
     };
   }
 
@@ -75,6 +81,8 @@ class UserModel {
           ? UserPermissions.fromMap(map['permissions'])
           : UserPermissions.staffPermissions(),
       isApproved: map['isApproved'] ?? false,
+      isRejected: map['isRejected'] ?? false,
+      rejectionReason: map['rejectionReason'],
     );
   }
 }

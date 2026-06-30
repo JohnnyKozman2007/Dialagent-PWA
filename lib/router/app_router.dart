@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -15,11 +14,11 @@ import '../screens/settings/edit_profile_screen.dart';
 import '../screens/settings/edit_restaurant_screen.dart';
 import '../screens/admin/permission_screen.dart';
 import '../screens/admin/invite_screen.dart';
+import '../screens/admin/restaurant_applications_screen.dart';
 import '../screens/shifts/shift_screen.dart';
 import '../screens/shifts/my_shifts_screen.dart';
 import '../screens/tasks/task_screen.dart';
 import '../models/user_model.dart';
-import '../utils/session_storage.dart';
 
 final router = GoRouter(
   initialLocation: '/login',
@@ -80,7 +79,10 @@ final router = GoRouter(
     GoRoute(
       path: '/signup',
       name: 'signup',
-      builder: (context, state) => const SignUpScreen(), // ✅ Correct
+      builder: (context, state) {
+        final email = state.uri.queryParameters['email'] ?? '';
+        return SignUpScreen(prefilledEmail: email);
+      },
     ),
     GoRoute(
       path: '/recovery',
@@ -163,6 +165,11 @@ final router = GoRouter(
         final user = state.extra as UserModel?;
         return PermissionScreen(user: user);
       },
+    ),
+    GoRoute(
+      path: '/admin/applications',
+      name: 'admin-applications',
+      builder: (context, state) => const RestaurantApplicationsScreen(),
     ),
   ],
 );
