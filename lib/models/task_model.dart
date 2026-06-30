@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 class Task extends Equatable {
@@ -28,20 +27,31 @@ class Task extends Equatable {
     this.calendarEventId,
   });
 
-  factory Task.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  factory Task.fromMap(String id, Map<String, dynamic> map) {
+    DateTime parseDateTime(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is DateTime) return value;
+      if (value is String) return DateTime.parse(value);
+      return DateTime.now();
+    }
+    DateTime? parseNullableDateTime(dynamic value) {
+      if (value == null) return null;
+      if (value is DateTime) return value;
+      if (value is String) return DateTime.parse(value);
+      return null;
+    }
     return Task(
-      id: doc.id,
-      title: data['title'] ?? '',
-      description: data['description'] ?? '',
-      restaurantId: data['restaurantId'] ?? '',
-      assignedTo: data['assignedTo'],
-      assignedToName: data['assignedToName'],
-      status: data['status'] ?? 'pending',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      dueDate: data['dueDate'] != null ? (data['dueDate'] as Timestamp).toDate() : null,
-      syncedToCalendar: data['syncedToCalendar'] ?? false,
-      calendarEventId: data['calendarEventId'],
+      id: id,
+      title: map['title'] ?? '',
+      description: map['description'] ?? '',
+      restaurantId: map['restaurant_id'] ?? '',
+      assignedTo: map['assigned_to'],
+      assignedToName: map['assigned_to_name'],
+      status: map['status'] ?? 'pending',
+      createdAt: parseDateTime(map['created_at']),
+      dueDate: parseNullableDateTime(map['due_date']),
+      syncedToCalendar: map['synced_to_calendar'] ?? false,
+      calendarEventId: map['calendar_event_id'],
     );
   }
 
@@ -49,14 +59,14 @@ class Task extends Equatable {
     return {
       'title': title,
       'description': description,
-      'restaurantId': restaurantId,
-      'assignedTo': assignedTo,
-      'assignedToName': assignedToName,
+      'restaurant_id': restaurantId,
+      'assigned_to': assignedTo,
+      'assigned_to_name': assignedToName,
       'status': status,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'dueDate': dueDate != null ? Timestamp.fromDate(dueDate!) : null,
-      'syncedToCalendar': syncedToCalendar,
-      'calendarEventId': calendarEventId,
+      'created_at': createdAt.toIso8601String(),
+      'due_date': dueDate?.toIso8601String(),
+      'synced_to_calendar': syncedToCalendar,
+      'calendar_event_id': calendarEventId,
     };
   }
 

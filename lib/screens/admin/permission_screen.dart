@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/user_model.dart';
 import '../../models/permissions.dart';
@@ -31,17 +30,17 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final currentUser = FirebaseAuth.instance.currentUser;
+      final currentUser = Supabase.instance.client.auth.currentUser;
       if (currentUser == null) return;
 
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .where('role', isNotEqualTo: 'Owner')
-          .get();
+      final snapshot = await Supabase.instance.client
+          .from('profiles')
+          .select()
+          .neq('role', 'Owner');
 
       setState(() {
-        _staffMembers = snapshot.docs
-            .map((doc) => UserModel.fromMap(doc.id, doc.data()))
+        _staffMembers = (snapshot as List)
+            .map((data) => UserModel.fromMap(data['id'] as String, data))
             .toList();
         if (_staffMembers.isNotEmpty) {
           _selectedUserId = _staffMembers.first.uid;
@@ -56,12 +55,12 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
 
   Future<void> _updatePermissions(String userId, UserPermissions permissions) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
+      await Supabase.instance.client
+          .from('profiles')
           .update({
         'permissions': permissions.toMap(),
-      });
+      })
+          .eq('id', userId);
 
       ref.invalidate(userProvider);
 
@@ -85,9 +84,6 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manage Permissions'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(), // ✅ FIXED

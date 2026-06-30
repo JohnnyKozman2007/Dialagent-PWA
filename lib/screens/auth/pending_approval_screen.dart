@@ -1,6 +1,5 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 
 class PendingApprovalScreen extends StatefulWidget {
@@ -11,30 +10,49 @@ class PendingApprovalScreen extends StatefulWidget {
 }
 
 class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
+  RealtimeChannel? _channel;
+
   @override
   void initState() {
     super.initState();
     _listenToApprovalStatus();
   }
 
+  @override
+  void dispose() {
+    if (_channel != null) {
+      Supabase.instance.client.removeChannel(_channel!);
+    }
+    super.dispose();
+  }
+
   void _listenToApprovalStatus() {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
       context.go('/login');
       return;
     }
 
-    FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .snapshots()
-        .listen((doc) {
-      if (!mounted) return;
-      final isApproved = doc.data()?['isApproved'] ?? false;
-      if (isApproved) {
-        context.go('/dashboard');
-      }
-    });
+    // Set up realtime channel to listen to changes in profiles for this user
+    _channel = Supabase.instance.client
+        .channel('public:profiles:id=eq.${user.id}')
+        .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'profiles',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'id',
+              value: user.id,
+            ),
+            callback: (payload) {
+              if (!mounted) return;
+              final isApproved = payload.newRecord['is_approved'] ?? false;
+              if (isApproved) {
+                context.go('/dashboard');
+              }
+            })
+        .subscribe();
   }
 
   @override
@@ -42,9 +60,6 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Account Pending'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        elevation: 0,
       ),
       body: Center(
         child: Padding(
@@ -67,11 +82,55 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
-                onPressed: () {
-                  // The listener will catch the change automatically
+                onPressed: () async {
+                  final user = Supabase.instance.client.auth.currentUser;
+                  if (user == null) {
+                    if (mounted) context.go('/login');
+                    return;
+                  }
+                  
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Checking approval status...')),
                   );
+
+                  try {
+                    final doc = await Supabase.instance.client
+                        .from('profiles')
+                        .select('is_approved')
+                        .eq('id', user.id)
+                        .maybeSingle();
+
+                    final isApproved = doc?['is_approved'] ?? false;
+                    if (isApproved) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('✅ Your account has been approved! Redirecting...'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                        context.go('/dashboard');
+                      }
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Your account is still pending approval.'),
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error checking status: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
                 },
                 icon: const Icon(Icons.refresh),
                 label: const Text('Check Status'),
@@ -91,7 +150,7 @@ class _PendingApprovalScreenState extends State<PendingApprovalScreen> {
                         ),
                         ElevatedButton(
                           onPressed: () async {
-                            await FirebaseAuth.instance.signOut();
+                            await Supabase.instance.client.auth.signOut();
                             if (context.mounted) {
                               context.go('/login');
                             }

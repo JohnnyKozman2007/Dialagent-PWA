@@ -9,9 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  firebase_core: ^3.12.1
-  firebase_auth: ^5.5.1
-  cloud_firestore: ^5.6.5
+  supabase_flutter: ^2.8.0
   crypto: ^3.0.3
   base32: ^2.0.0
   qr_flutter: ^4.1.0
@@ -19,6 +17,7 @@ dependencies:
   go_router: ^14.0.0
   shared_preferences: ^2.3.0
   equatable: ^2.0.5
+  image_picker: ^1.2.2
 
 dev_dependencies:
   flutter_test:

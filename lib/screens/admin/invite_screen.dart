@@ -1,6 +1,5 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 
 class InviteScreen extends StatefulWidget {
@@ -23,24 +22,25 @@ class _InviteScreenState extends State<InviteScreen> {
     setState(() => isLoading = true);
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final user = Supabase.instance.client.auth.currentUser;
       if (user == null) throw Exception('Not logged in');
 
       // Get the owner's document
-      final ownerDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final ownerDoc = await Supabase.instance.client
+          .from('profiles')
+          .select('restaurant_id')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      String? restaurantId = ownerDoc.data()?['restaurantId'];
+      String? restaurantId = ownerDoc?['restaurant_id'];
 
       // 🔥 FIX: If restaurantId is missing, use the owner's UID
       if (restaurantId == null || restaurantId.isEmpty) {
-        restaurantId = user.uid;
+        restaurantId = user.id;
         // Save it back to the owner's document so future invites work
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-          'restaurantId': restaurantId,
-        });
+        await Supabase.instance.client.from('profiles').update({
+          'restaurant_id': restaurantId,
+        }).eq('id', user.id);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Restaurant ID assigned. You can now invite staff.'),
@@ -49,11 +49,16 @@ class _InviteScreenState extends State<InviteScreen> {
         );
       }
 
-      final email = emailController.text.trim();
+      final email = emailController.text.trim().toLowerCase();
 
-      // Check if user already exists in Firebase Auth
-      final methods = await FirebaseAuth.instance.fetchSignInMethodsForEmail(email);
-      if (methods.isNotEmpty) {
+      // Check if user already exists in profiles
+      final existingUser = await Supabase.instance.client
+          .from('profiles')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+
+      if (existingUser != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('This email is already registered.')),
         );
@@ -62,13 +67,14 @@ class _InviteScreenState extends State<InviteScreen> {
       }
 
       // Check if invite already exists
-      final existingInvite = await FirebaseFirestore.instance
-          .collection('invites')
-          .where('email', isEqualTo: email)
-          .where('used', isEqualTo: false)
-          .get();
+      final existingInvite = await Supabase.instance.client
+          .from('invites')
+          .select('id')
+          .eq('email', email)
+          .eq('used', false)
+          .maybeSingle();
 
-      if (existingInvite.docs.isNotEmpty) {
+      if (existingInvite != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('An invite already exists for this email.')),
         );
@@ -77,13 +83,13 @@ class _InviteScreenState extends State<InviteScreen> {
       }
 
       // Create invite with restaurantId
-      await FirebaseFirestore.instance.collection('invites').add({
+      await Supabase.instance.client.from('invites').insert({
         'email': email,
         'role': selectedRole,
-        'restaurantId': restaurantId,
+        'restaurant_id': restaurantId,
         'used': false,
-        'createdAt': FieldValue.serverTimestamp(),
-        'createdBy': user.uid,
+        'created_at': DateTime.now().toIso8601String(),
+        'created_by': user.id,
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -109,8 +115,6 @@ class _InviteScreenState extends State<InviteScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Invite Staff'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),

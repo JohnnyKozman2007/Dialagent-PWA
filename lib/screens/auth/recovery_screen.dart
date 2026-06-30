@@ -1,4 +1,4 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 
 class RecoveryScreen extends StatefulWidget {
@@ -24,14 +24,12 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
     setState(() => isLoading = true);
 
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(
-        email: emailController.text.trim(),
+      await Supabase.instance.client.auth.resetPasswordForEmail(
+        emailController.text.trim(),
       );
       setState(() => emailSent = true);
-    } on FirebaseAuthException catch (e) {
-      String message = 'Failed to send reset email.';
-      if (e.code == 'user-not-found') message = 'No account found with this email.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } on AuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('An error occurred.')),
@@ -46,8 +44,6 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reset Password'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
       ),
       body: Center(
         child: Padding(

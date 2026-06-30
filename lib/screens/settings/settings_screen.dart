@@ -1,12 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/user_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../models/user_model.dart';
-import '../../models/permissions.dart';
 import '../../utils/totp_util.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -27,9 +25,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(), // ✅ FIXED: go back to previous screen
@@ -41,7 +36,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         data: (UserModel? user) {
           if (user == null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              ref.refresh(userProvider);
+              ref.invalidate(userProvider);
             });
             return const Center(child: CircularProgressIndicator());
           }
@@ -150,11 +145,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               // --- Appearance Section ---
               _buildSectionHeader('🎨 Appearance'),
               _buildSettingsTile(
-                icon: themeMode == ThemeMode.dark ? Icons.dark_mode : Icons.light_mode,
-                title: themeMode == ThemeMode.dark ? 'Dark Mode' : 'Light Mode',
-                subtitle: themeMode == ThemeMode.dark ? 'Dark theme enabled' : 'Light theme enabled',
-                onTap: () => ref.read(themeModeProvider.notifier).toggleTheme(),
-                color: themeMode == ThemeMode.dark ? Colors.purple : Colors.amber,
+                icon: themeMode == ThemeMode.system
+                    ? Icons.brightness_auto
+                    : themeMode == ThemeMode.dark
+                        ? Icons.dark_mode
+                        : Icons.light_mode,
+                title: 'Theme Mode',
+                subtitle: themeMode == ThemeMode.system
+                    ? 'System Default'
+                    : themeMode == ThemeMode.dark
+                        ? 'Dark theme enabled'
+                        : 'Light theme enabled',
+                onTap: () => _showThemePickerDialog(context),
+                color: themeMode == ThemeMode.system
+                    ? Colors.teal
+                    : themeMode == ThemeMode.dark
+                        ? Colors.purple
+                        : Colors.amber,
               ),
               const SizedBox(height: 16),
 
@@ -405,7 +412,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         return;
                       }
 
-                      final user = FirebaseAuth.instance.currentUser;
+                      final user = Supabase.instance.client.auth.currentUser;
                       if (user == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('User not logged in')),
@@ -414,26 +421,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         return;
                       }
 
-                      final credential = EmailAuthProvider.credential(
+                      // Re-authenticate by trying to sign in with password
+                      await Supabase.instance.client.auth.signInWithPassword(
                         email: user.email!,
                         password: currentPasswordController.text,
                       );
-                      await user.reauthenticateWithCredential(credential);
 
                       setState(() {
                         _isLoading = false;
                         step2 = true;
                         twoFAController.clear();
                       });
-                    } on FirebaseAuthException catch (e) {
-                      String message = 'Re-authentication failed';
-                      if (e.code == 'wrong-password') {
-                        message = '❌ Current password is incorrect';
-                      } else if (e.code == 'too-many-requests') {
-                        message = 'Too many failed attempts. Please try again later.';
-                      }
+                    } on AuthException catch (e) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(message)),
+                        SnackBar(content: Text('❌ Re-authentication failed: ${e.message}')),
                       );
                       setState(() => _isLoading = false);
                     } catch (e) {
@@ -448,7 +449,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   setState(() => _isLoading = true);
 
                   try {
-                    final user = FirebaseAuth.instance.currentUser;
+                    final user = Supabase.instance.client.auth.currentUser;
                     if (user == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('User not logged in')),
@@ -457,12 +458,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       return;
                     }
 
-                    final doc = await FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(user.uid)
-                        .get();
+                    final doc = await Supabase.instance.client
+                        .from('profiles')
+                        .select('two_fa_secret')
+                        .eq('id', user.id)
+                        .maybeSingle();
 
-                    final secret = doc.data()?['twoFASecret'];
+                    final secret = doc?['two_fa_secret'];
                     if (secret == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('2FA not set up. Please contact admin.')),
@@ -487,7 +489,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       return;
                     }
 
-                    await user.updatePassword(newPasswordController.text);
+                    await Supabase.instance.client.auth.updateUser(
+                      UserAttributes(password: newPasswordController.text),
+                    );
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -501,15 +505,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     confirmPasswordController.dispose();
                     twoFAController.dispose();
                     Navigator.pop(context);
-                  } on FirebaseAuthException catch (e) {
-                    String message = 'Failed to update password';
-                    if (e.code == 'requires-recent-login') {
-                      message = 'Please log out and log in again';
-                    } else if (e.code == 'weak-password') {
-                      message = 'New password is too weak';
-                    }
+                  } on AuthException catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(message)),
+                      SnackBar(content: Text('Failed to update password: ${e.message}')),
                     );
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -560,13 +558,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ? const Icon(Icons.check, color: Colors.green)
                   : null,
               onTap: () async {
-                final uid = FirebaseAuth.instance.currentUser?.uid;
+                final uid = Supabase.instance.client.auth.currentUser?.id;
                 if (uid != null) {
-                  await FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(uid)
-                      .update({'cuisineType': cuisine});
-                  ref.refresh(userProvider);
+                  await Supabase.instance.client
+                      .from('profiles')
+                      .update({'cuisine_type': cuisine})
+                      .eq('id', uid);
+                  ref.invalidate(userProvider);
                   Navigator.pop(context);
                 }
               },
@@ -625,17 +623,68 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final uid = FirebaseAuth.instance.currentUser?.uid;
+                final uid = Supabase.instance.client.auth.currentUser?.id;
                 if (uid != null) {
-                  await FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(uid)
-                      .update({'tableCount': tempCount});
-                  ref.refresh(userProvider);
+                  await Supabase.instance.client
+                      .from('profiles')
+                      .update({'table_count': tempCount})
+                      .eq('id', uid);
+                  ref.invalidate(userProvider);
                   Navigator.pop(context);
                 }
               },
               child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- Theme Picker Dialog ---
+  void _showThemePickerDialog(BuildContext context) {
+    final themeNotifier = ref.read(themeModeProvider.notifier);
+    final currentTheme = ref.read(themeModeProvider);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Choose Theme'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<ThemeMode>(
+              title: const Text('System Default'),
+              value: ThemeMode.system,
+              groupValue: currentTheme,
+              onChanged: (mode) {
+                if (mode != null) {
+                  themeNotifier.setTheme(mode);
+                  Navigator.pop(context);
+                }
+              },
+            ),
+            RadioListTile<ThemeMode>(
+              title: const Text('Light Theme'),
+              value: ThemeMode.light,
+              groupValue: currentTheme,
+              onChanged: (mode) {
+                if (mode != null) {
+                  themeNotifier.setTheme(mode);
+                  Navigator.pop(context);
+                }
+              },
+            ),
+            RadioListTile<ThemeMode>(
+              title: const Text('Dark Theme'),
+              value: ThemeMode.dark,
+              groupValue: currentTheme,
+              onChanged: (mode) {
+                if (mode != null) {
+                  themeNotifier.setTheme(mode);
+                  Navigator.pop(context);
+                }
+              },
             ),
           ],
         ),
@@ -667,7 +716,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirm == true) {
       ref.invalidate(userProvider);
       ref.invalidate(userRoleProvider);
-      await FirebaseAuth.instance.signOut();
+      await Supabase.instance.client.auth.signOut();
       if (context.mounted) {
         context.go('/login');
       }
