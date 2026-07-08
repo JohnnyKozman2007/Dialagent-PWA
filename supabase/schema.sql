@@ -205,15 +205,28 @@ declare
   assigned_onboarding_completed boolean;
   matched_invite_role text;
   matched_invite_restaurant_id uuid;
+  meta_role text;
+  meta_restaurant_id text;
 begin
   -- Check if any users exist in public.users. If none, this is the Owner.
   select not exists (select 1 from public.users) into is_first_user;
   
-  -- Check if there is a pending invite for this email
+  -- Primary check: look for a pending invite row (inserted before inviteUserByEmail is called)
   select role, restaurant_id into matched_invite_role, matched_invite_restaurant_id
   from public.invites
   where email = new.email and used = false
   limit 1;
+
+  -- Fallback: read role and restaurant_id from Supabase auth metadata
+  -- This covers any race condition where the invite row wasn't committed yet
+  meta_role := new.raw_user_meta_data->>'role';
+  meta_restaurant_id := new.raw_user_meta_data->>'restaurant_id';
+
+  -- Use metadata as fallback if invite table lookup found nothing
+  if matched_invite_restaurant_id is null and meta_restaurant_id is not null and meta_restaurant_id != '' then
+    matched_invite_role := meta_role;
+    matched_invite_restaurant_id := meta_restaurant_id::uuid;
+  end if;
 
   if new.email = 'kozmanjohnny82@gmail.com' then
     assigned_role := 'Admin';
@@ -221,23 +234,24 @@ begin
     assigned_is_approved := true;
     assigned_onboarding_completed := false;
   elsif matched_invite_restaurant_id is not null then
-    assigned_role := matched_invite_role;
+    -- Invited staff: use role from invite (or metadata fallback), skip onboarding
+    assigned_role := coalesce(matched_invite_role, 'Staff');
     assigned_restaurant_id := matched_invite_restaurant_id;
-    assigned_is_approved := true; -- Invited staff are auto-approved
+    assigned_is_approved := true;         -- Invited staff are auto-approved
     assigned_onboarding_completed := true; -- Invited staff bypass onboarding
   else
     assigned_role := 'Owner';
     assigned_restaurant_id := new.id; -- Owner's own ID is the initial restaurant ID
-    assigned_is_approved := false; -- Owner needs manual approval from backoffice
+    assigned_is_approved := false;    -- Owner needs manual approval from backoffice
     assigned_onboarding_completed := false;
   end if;
 
   insert into public.users (uid, email, role, restaurant_id, is_approved, onboarding_completed)
   values (new.id, new.email, assigned_role, assigned_restaurant_id, assigned_is_approved, assigned_onboarding_completed);
 
-  -- Mark the invite as used if we matched one
+  -- Mark the invite as used if we matched one from the invites table
   if matched_invite_restaurant_id is not null then
-    update public.invites set used = true where email = new.email;
+    update public.invites set used = true where email = new.email and used = false;
   end if;
 
   return new;

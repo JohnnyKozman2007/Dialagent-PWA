@@ -63,8 +63,8 @@ serve(async (req) => {
 
     const normalizedEmail = email.trim().toLowerCase()
 
-    // 1. Check if user already exists
-    const { data: existingUser, error: checkError } = await adminClient
+    // 1. Check if user already exists in public.users
+    const { data: existingUser } = await adminClient
       .from('users')
       .select('uid')
       .eq('email', normalizedEmail)
@@ -77,18 +77,36 @@ serve(async (req) => {
       })
     }
 
-    // 2. Call Supabase Auth invite API (triggers your SMTP server email)
+    // 2. PRE-INSERT the invite row into the invites table BEFORE calling inviteUserByEmail.
+    //    This is critical: inviteUserByEmail immediately creates the auth.users row which
+    //    fires the handle_new_user trigger. That trigger reads from the invites table to
+    //    assign the correct role and onboarding_completed=true. If the invite row doesn't
+    //    exist yet when the trigger fires, the user gets assigned Owner role instead — broken!
+    const { error: inviteInsertError } = await adminClient.from('invites').insert({
+      email: normalizedEmail,
+      role: role,
+      restaurant_id: profile.restaurant_id,
+      used: false,
+      created_by: user.id
+    })
+
+    if (inviteInsertError) {
+      return new Response(JSON.stringify({ error: 'Failed to create invite record: ' + inviteInsertError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // 3. Now call the Auth invite API. The handle_new_user trigger will fire here,
+    //    find the invite row we just inserted, and set the correct role + onboarding_completed=true.
+    const redirectOrigin = 'https://dialagent-pwa-supabase-2.vercel.app'
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
       normalizedEmail,
       {
-        redirectTo: (() => {
-          let origin = req.headers.get('origin') || 'https://dialagent-pwa-supabase-2.vercel.app';
-          if (origin.includes('localhost')) {
-            origin = 'https://dialagent-pwa-supabase-2.vercel.app';
-          }
-          return `${origin}/welcome`;
-        })(),
+        redirectTo: `${redirectOrigin}/welcome`,
         data: {
+          // Also pass role and restaurant_id in user metadata as a backup,
+          // in case of any edge-case where the trigger reads metadata instead of the table.
           role: role,
           restaurant_id: profile.restaurant_id
         }
@@ -96,20 +114,13 @@ serve(async (req) => {
     )
 
     if (inviteError) {
+      // Roll back: delete the invite row we just inserted since the invite failed
+      await adminClient.from('invites').delete().eq('email', normalizedEmail).eq('used', false)
       return new Response(JSON.stringify({ error: inviteError.message }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-
-    // 3. Insert tracking record in invites table
-    await adminClient.from('invites').insert({
-      email: normalizedEmail,
-      role: role,
-      restaurant_id: profile.restaurant_id,
-      used: false,
-      created_by: user.id
-    })
 
     return new Response(JSON.stringify({ success: true, user: inviteData.user }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
