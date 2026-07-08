@@ -126,13 +126,12 @@ class ApiService {
         throw Exception('Failed to load pending restaurants');
       }
     } else {
-      // Fallback: Query all users/restaurants that are not yet approved
+      // Fallback: Query all owners so the client can filter by status
       final client = Supabase.instance.client;
       final data = await client
           .from('users')
           .select()
-          .eq('role', 'Owner')
-          .eq('is_approved', false);
+          .eq('role', 'Owner');
       return List<Map<String, dynamic>>.from(data);
     }
   }
@@ -154,11 +153,17 @@ class ApiService {
       if (action == 'APPROVE') {
         await client.from('users').update({
           'is_approved': true,
+          'is_rejected': false,
         }).eq('uid', uid);
-      } else {
-        // Reject - we can delete or keep unapproved
+      } else if (action == 'REJECT') {
         await client.from('users').update({
           'is_approved': false,
+          'is_rejected': true,
+        }).eq('uid', uid);
+      } else if (action == 'PENDING') {
+        await client.from('users').update({
+          'is_approved': false,
+          'is_rejected': false,
         }).eq('uid', uid);
       }
     }

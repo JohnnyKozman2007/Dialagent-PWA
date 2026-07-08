@@ -14,6 +14,7 @@ create table public.users (
     two_fa_secret text,
     created_at timestamptz default now(),
     is_approved boolean default false,
+    is_rejected boolean default false,
     dark_mode boolean default false,
     permissions jsonb default '{"canManageStaff": false, "canManageMenu": false, "canManageTables": false, "canViewRevenue": false, "canManageReservations": false, "canViewSettings": false}'::jsonb
 );

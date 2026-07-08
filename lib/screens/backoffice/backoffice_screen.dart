@@ -14,7 +14,8 @@ class _BackofficeScreenState extends State<BackofficeScreen> {
   bool _isLoading = false;
   List<Map<String, dynamic>> _analytics = [];
   List<Map<String, dynamic>> _tickets = [];
-  List<Map<String, dynamic>> _pendingRestaurants = [];
+  List<Map<String, dynamic>> _allRestaurants = [];
+  String _selectedTab = 'PENDING'; // 'PENDING', 'APPROVED', 'REJECTED'
   final List<String> _auditLogs = [];
 
   @override
@@ -28,14 +29,14 @@ class _BackofficeScreenState extends State<BackofficeScreen> {
     try {
       final analyticsData = await ApiService.getBackofficeAnalytics();
       final ticketsData = await ApiService.getSupportTickets();
-      final pendingRestData = await ApiService.getPendingRestaurants();
+      final allRestData = await ApiService.getPendingRestaurants();
 
       setState(() {
         _analytics = analyticsData;
         _tickets = ticketsData;
-        _pendingRestaurants = pendingRestData;
+        _allRestaurants = allRestData;
       });
-      _addLog('Loaded dashboard stats, support tickets and pending onboarding requests.');
+      _addLog('Loaded dashboard stats, support tickets and restaurant onboarding records.');
     } catch (e) {
       _addLog('Error loading backoffice data: $e');
     } finally {
@@ -57,8 +58,8 @@ class _BackofficeScreenState extends State<BackofficeScreen> {
       _addLog('Action $action executed on restaurant: $name (UID: $uid)');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Restaurant "$name" has been ${action == 'APPROVE' ? 'Approved' : 'Rejected'} successfully.'),
-          backgroundColor: action == 'APPROVE' ? Colors.green : Colors.red,
+          content: Text('Restaurant "$name" status updated to $action.'),
+          backgroundColor: action == 'APPROVE' ? Colors.green : (action == 'REJECT' ? Colors.red : Colors.orange),
         ),
       );
       await _loadAllData();
@@ -80,10 +81,58 @@ class _BackofficeScreenState extends State<BackofficeScreen> {
     }
   }
 
+  Widget _buildTabButton(String label, String tabCode, int count, Color activeColor) {
+    final isSelected = _selectedTab == tabCode;
+    return ElevatedButton(
+      onPressed: () {
+        setState(() {
+          _selectedTab = tabCode;
+        });
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isSelected ? activeColor : Colors.grey.shade800,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '$count',
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+
+    final pending = _allRestaurants.where((r) => !(r['is_approved'] ?? false) && !(r['is_rejected'] ?? false)).toList();
+    final approved = _allRestaurants.where((r) => r['is_approved'] ?? false).toList();
+    final rejected = _allRestaurants.where((r) => r['is_rejected'] ?? false).toList();
+
+    List<Map<String, dynamic>> activeList;
+    if (_selectedTab == 'APPROVED') {
+      activeList = approved;
+    } else if (_selectedTab == 'REJECTED') {
+      activeList = rejected;
+    } else {
+      activeList = pending;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -187,16 +236,33 @@ class _BackofficeScreenState extends State<BackofficeScreen> {
                               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 16),
-                            _pendingRestaurants.isEmpty
+
+                            // Tab Filters
+                            Row(
+                              children: [
+                                _buildTabButton('Pending Review', 'PENDING', pending.length, Colors.orange),
+                                const SizedBox(width: 12),
+                                _buildTabButton('Approved / Active', 'APPROVED', approved.length, Colors.green),
+                                const SizedBox(width: 12),
+                                _buildTabButton('Rejected', 'REJECTED', rejected.length, Colors.red),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+
+                            activeList.isEmpty
                                 ? Card(
                                     elevation: 1,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(32.0),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(32.0),
                                       child: Center(
                                         child: Text(
-                                          'No pending onboarding requests.',
-                                          style: TextStyle(color: Colors.grey),
+                                          _selectedTab == 'PENDING'
+                                              ? 'No pending onboarding requests.'
+                                              : (_selectedTab == 'APPROVED'
+                                                  ? 'No approved restaurants yet.'
+                                                  : 'No rejected onboarding requests.'),
+                                          style: const TextStyle(color: Colors.grey),
                                         ),
                                       ),
                                     ),
@@ -204,9 +270,9 @@ class _BackofficeScreenState extends State<BackofficeScreen> {
                                 : ListView.builder(
                                     shrinkWrap: true,
                                     physics: const NeverScrollableScrollPhysics(),
-                                    itemCount: _pendingRestaurants.length,
+                                    itemCount: activeList.length,
                                     itemBuilder: (context, index) {
-                                      final rest = _pendingRestaurants[index];
+                                      final rest = activeList[index];
                                       final restName = rest['restaurant_name']?.toString().isNotEmpty == true
                                           ? rest['restaurant_name']
                                           : 'Unnamed Restaurant';
@@ -251,22 +317,58 @@ class _BackofficeScreenState extends State<BackofficeScreen> {
                                               ),
                                               Row(
                                                 children: [
-                                                  ElevatedButton.icon(
-                                                    onPressed: () => _verifyRestaurant(uid, restName, 'APPROVE'),
-                                                    icon: const Icon(Icons.check, size: 16),
-                                                    label: const Text('Approve'),
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: Colors.green,
-                                                      foregroundColor: Colors.white,
+                                                  if (_selectedTab == 'PENDING') ...[
+                                                    ElevatedButton.icon(
+                                                      onPressed: () => _verifyRestaurant(uid, restName, 'APPROVE'),
+                                                      icon: const Icon(Icons.check, size: 16),
+                                                      label: const Text('Approve'),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: Colors.green,
+                                                        foregroundColor: Colors.white,
+                                                      ),
                                                     ),
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  TextButton.icon(
-                                                    onPressed: () => _verifyRestaurant(uid, restName, 'REJECT'),
-                                                    icon: const Icon(Icons.block, size: 16, color: Colors.red),
-                                                    label: const Text('Reject'),
-                                                    style: TextButton.styleFrom(foregroundColor: Colors.red),
-                                                  ),
+                                                    const SizedBox(width: 12),
+                                                    TextButton.icon(
+                                                      onPressed: () => _verifyRestaurant(uid, restName, 'REJECT'),
+                                                      icon: const Icon(Icons.block, size: 16, color: Colors.red),
+                                                      label: const Text('Reject'),
+                                                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                                    ),
+                                                  ] else if (_selectedTab == 'APPROVED') ...[
+                                                    TextButton.icon(
+                                                      onPressed: () => _verifyRestaurant(uid, restName, 'PENDING'),
+                                                      icon: const Icon(Icons.undo, size: 16, color: Colors.orange),
+                                                      label: const Text('Move to Pending'),
+                                                      style: TextButton.styleFrom(foregroundColor: Colors.orange),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    ElevatedButton.icon(
+                                                      onPressed: () => _verifyRestaurant(uid, restName, 'REJECT'),
+                                                      icon: const Icon(Icons.block, size: 16),
+                                                      label: const Text('Reject'),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: Colors.red,
+                                                        foregroundColor: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ] else if (_selectedTab == 'REJECTED') ...[
+                                                    ElevatedButton.icon(
+                                                      onPressed: () => _verifyRestaurant(uid, restName, 'APPROVE'),
+                                                      icon: const Icon(Icons.check, size: 16),
+                                                      label: const Text('Approve'),
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: Colors.green,
+                                                        foregroundColor: Colors.white,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    TextButton.icon(
+                                                      onPressed: () => _verifyRestaurant(uid, restName, 'PENDING'),
+                                                      icon: const Icon(Icons.undo, size: 16, color: Colors.orange),
+                                                      label: const Text('Move to Pending'),
+                                                      style: TextButton.styleFrom(foregroundColor: Colors.orange),
+                                                    ),
+                                                  ]
                                                 ],
                                               ),
                                             ],
