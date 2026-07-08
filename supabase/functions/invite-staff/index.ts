@@ -81,7 +81,13 @@ serve(async (req) => {
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
       normalizedEmail,
       {
-        redirectTo: `${req.headers.get('origin') || 'https://dialagent-pwa.vercel.app'}/signup`,
+        redirectTo: (() => {
+          let origin = req.headers.get('origin') || 'https://dialagent-pwa-supabase-2.vercel.app';
+          if (origin.includes('localhost')) {
+            origin = 'https://dialagent-pwa-supabase-2.vercel.app';
+          }
+          return `${origin}/signup`;
+        })(),
         data: {
           role: role,
           restaurant_id: profile.restaurant_id
