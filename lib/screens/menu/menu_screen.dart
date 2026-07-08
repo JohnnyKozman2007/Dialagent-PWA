@@ -477,6 +477,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
     final imgController = TextEditingController(text: item?['image_url']);
     String selectedCatId = item?['category_id'] ?? _categories.first['id'];
 
+    bool isUploading = false;
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -518,13 +520,74 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: imgController,
-                  decoration: const InputDecoration(
-                    labelText: 'Optional Image URL',
-                    hintText: 'https://example.com/dish.jpg',
-                    border: OutlineInputBorder(),
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: imgController,
+                        decoration: const InputDecoration(
+                          labelText: 'Optional Image URL',
+                          hintText: 'https://example.com/dish.jpg',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: isUploading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.teal),
+                            )
+                          : const Icon(Icons.add_photo_alternate, color: Colors.teal, size: 28),
+                      tooltip: 'Upload Image',
+                      onPressed: isUploading
+                          ? null
+                          : () async {
+                              final picker = ImagePicker();
+                              final pickedFile = await picker.pickImage(
+                                source: ImageSource.gallery,
+                                imageQuality: 70,
+                              );
+                              if (pickedFile != null) {
+                                setDialogState(() {
+                                  isUploading = true;
+                                });
+                                try {
+                                  final bytes = await pickedFile.readAsBytes();
+                                  final fileName = '${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}';
+
+                                  final client = Supabase.instance.client;
+                                  await client.storage.from('menu-images').uploadBinary(
+                                        fileName,
+                                        bytes,
+                                        fileOptions: const FileOptions(contentType: 'image/jpeg'),
+                                      );
+
+                                  final publicUrl = client.storage.from('menu-images').getPublicUrl(fileName);
+                                  setDialogState(() {
+                                    imgController.text = publicUrl;
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Image uploaded successfully!')),
+                                  );
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Upload failed: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                } finally {
+                                  setDialogState(() {
+                                    isUploading = false;
+                                  });
+                                }
+                              }
+                            },
+                    ),
+                  ],
                 ),
               ],
             ),
