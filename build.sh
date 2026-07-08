@@ -14,6 +14,6 @@ flutter pub get
 
 # Build the web app
 echo "🚀 Building web app..."
-flutter build web --release
+flutter build web --release --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
 
 echo "✅ Build complete! Output in build/web"
