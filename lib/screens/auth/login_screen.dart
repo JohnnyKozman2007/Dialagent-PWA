@@ -40,6 +40,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return;
     }
 
+    // Force sign out if 2FA has not been verified for this session
+    if (!SessionStorage.isTwoFAVerified()) {
+      await client.auth.signOut();
+      return;
+    }
+
     try {
       final data = await client
           .from('users')

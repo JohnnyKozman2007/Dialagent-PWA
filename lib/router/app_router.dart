@@ -73,7 +73,7 @@ final router = GoRouter(
 
       // Enforce 2FA verification on every session login
       if (has2FA && !SessionStorage.isTwoFAVerified()) {
-        return '/verify-2fa';
+        return '/login';
       }
 
       if (!hasOnboarding) {
