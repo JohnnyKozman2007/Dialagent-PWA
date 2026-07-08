@@ -173,12 +173,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Theme(
       data: ThemeData.light().copyWith(
         useMaterial3: true,
-        colorScheme: const ColorScheme.light(primary: Colors.green),
+        colorScheme: const ColorScheme.light(primary: Colors.teal),
       ),
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Login'),
-          backgroundColor: Colors.green,
+          backgroundColor: Colors.teal,
           foregroundColor: Colors.white,
         ),
         body: Center(
@@ -191,10 +191,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.restaurant, size: 64, color: Colors.green),
+                    const Icon(Icons.restaurant, size: 64, color: Colors.teal),
                     const SizedBox(height: 20),
                     const Text('Restaurant Login', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'Supabase Edition v2.0',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.teal,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     TextField(
                       controller: emailController,
                       decoration: InputDecoration(
