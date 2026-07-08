@@ -268,14 +268,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                           ..._categories.map((cat) {
                             return Padding(
                               padding: const EdgeInsets.only(right: 8.0),
-                              child: ChoiceChip(
-                                label: Text(cat['name']),
-                                selected: _selectedCategoryId == cat['id'],
-                                onSelected: (val) {
-                                  setState(() {
-                                    _selectedCategoryId = val ? cat['id'] : null;
-                                  });
-                                },
+                              child: GestureDetector(
                                 onLongPress: isManager
                                     ? () {
                                         showDialog(
@@ -301,9 +294,18 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                                         );
                                       }
                                     : null,
+                                child: ChoiceChip(
+                                  label: Text(cat['name']),
+                                  selected: _selectedCategoryId == cat['id'],
+                                  onSelected: (val) {
+                                    setState(() {
+                                      _selectedCategoryId = val ? cat['id'] : null;
+                                    });
+                                  },
+                                ),
                               ),
                             );
-                          }),
+                          }).toList(),
                         ],
                       ),
                     ),
@@ -511,7 +513,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: priceController,
-                  decoration: const InputDecoration(labelText: 'Price ($)', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(labelText: 'Price (\$)', border: OutlineInputBorder()),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
                 const SizedBox(height: 12),
