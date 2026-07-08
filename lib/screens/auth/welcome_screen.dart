@@ -151,7 +151,6 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Container(
-            maxWidth: 450,
             constraints: const BoxConstraints(maxWidth: 450),
             child: Card(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
