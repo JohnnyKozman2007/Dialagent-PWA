@@ -1,0 +1,36 @@
+# Migration Tasks
+
+- [x] Configure dependencies (`pubspec.yaml`) and run `flutter pub get`
+- [x] Create project `.env` template
+- [x] Design and write SQL database schema (`supabase/schema.sql`)
+- [x] Create Google Calendar sync Edge Function (`supabase/functions/sync-calendar/index.ts`)
+- [x] Create client-side Supabase credentials config (`lib/supabase_options.dart`)
+- [/] Adapt data models to handle both camelCase (client) and snake_case (Supabase) (`UserModel`, `ShiftModel`, `Task`)
+- [ ] Update state providers to use Supabase instead of Firebase:
+  - [ ] `lib/providers/user_provider.dart`
+  - [ ] `lib/providers/task_provider.dart`
+  - [ ] `lib/providers/shift_provider.dart`
+- [ ] Update `lib/router/app_router.dart` redirect & guard logic
+- [ ] Update auth screens:
+  - [ ] `lib/screens/auth/signup_screen.dart`
+  - [ ] `lib/screens/auth/login_screen.dart`
+  - [ ] `lib/screens/auth/pending_approval_screen.dart`
+  - [ ] `lib/screens/auth/recovery_screen.dart`
+- [ ] Update setup and verification screens:
+  - [ ] `lib/screens/twofa/twofa_setup_screen.dart`
+  - [ ] `lib/screens/twofa/twofa_verify_screen.dart`
+  - [ ] `lib/screens/onboarding/onboarding_screen.dart`
+- [ ] Update features & dashboard:
+  - [ ] `lib/screens/dashboard/dashboard_screen.dart`
+  - [ ] `lib/screens/settings/settings_screen.dart`
+  - [ ] `lib/screens/settings/edit_profile_screen.dart`
+  - [ ] `lib/screens/settings/edit_restaurant_screen.dart`
+  - [ ] `lib/screens/admin/permission_screen.dart`
+  - [ ] `lib/screens/admin/invite_screen.dart`
+  - [ ] `lib/screens/shifts/my_shifts_screen.dart`
+  - [ ] `lib/screens/shifts/shift_screen.dart`
+  - [ ] `lib/screens/tasks/task_detail_screen.dart`
+  - [ ] `lib/screens/tasks/task_form_screen.dart`
+  - [ ] `lib/screens/tasks/task_screen.dart`
+- [ ] Update Google Calendar sync service (`lib/services/calendar_sync_service.dart`)
+- [ ] Verify compilation and fix any outstanding linting or syntax errors
