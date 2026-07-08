@@ -26,74 +26,25 @@ class _InviteScreenState extends State<InviteScreen> {
       final user = client.auth.currentUser;
       if (user == null) throw Exception('Not logged in');
 
-      // Get the owner's document
-      final ownerDoc = await client
-          .from('users')
-          .select('restaurant_id')
-          .eq('uid', user.id)
-          .maybeSingle();
-
-      String? restaurantId = ownerDoc?['restaurant_id'];
-
-      // 🔥 FIX: If restaurantId is missing, use the owner's UID
-      if (restaurantId == null || restaurantId.isEmpty) {
-        restaurantId = user.id;
-        // Save it back to the owner's document so future invites work
-        await client.from('users').update({
-          'restaurant_id': restaurantId,
-        }).eq('uid', user.id);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Restaurant ID assigned. You can now invite staff.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-
       final email = emailController.text.trim();
 
-      // Check if user already exists in Supabase DB
-      final existingUser = await client
-          .from('users')
-          .select('uid')
-          .eq('email', email)
-          .maybeSingle();
+      // Call the invite-staff edge function (this triggers the SMTP invitation email natively)
+      final response = await client.functions.invoke(
+        'invite-staff',
+        body: {
+          'email': email,
+          'role': selectedRole,
+        },
+      );
 
-      if (existingUser != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('This email is already registered.')),
-        );
-        setState(() => isLoading = false);
-        return;
+      if (response.status != 200) {
+        final errorMsg = response.data is Map ? (response.data['error'] ?? 'Failed to send invitation') : 'Failed to send invitation';
+        throw Exception(errorMsg);
       }
-
-      // Check if invite already exists
-      final existingInvite = await client
-          .from('invites')
-          .select('id')
-          .eq('email', email)
-          .eq('used', false);
-
-      if (existingInvite.isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('An invite already exists for this email.')),
-        );
-        setState(() => isLoading = false);
-        return;
-      }
-
-      // Create invite with restaurantId
-      await client.from('invites').insert({
-        'email': email,
-        'role': selectedRole,
-        'restaurant_id': restaurantId,
-        'used': false,
-        'created_by': user.id,
-      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✅ Invite sent to $email as $selectedRole'),
+          content: Text('✅ Invite email sent to $email as $selectedRole via SMTP!'),
           backgroundColor: Colors.green,
         ),
       );
