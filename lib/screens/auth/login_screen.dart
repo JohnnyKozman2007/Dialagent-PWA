@@ -119,8 +119,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         }
       }
 
-      // Reset 2FA session flag on new login
+      // Reset 2FA session flag on new login and set password verified flag
       SessionStorage.setTwoFAVerified(false);
+      SessionStorage.setPasswordVerified(true);
       ref.read(twoFAVerifiedProvider.notifier).state = false;
 
       final user = client.auth.currentUser!;

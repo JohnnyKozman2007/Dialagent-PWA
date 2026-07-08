@@ -112,6 +112,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       // Verify the session
       ref.read(twoFAVerifiedProvider.notifier).state = true;
       SessionStorage.setTwoFAVerified(true);
+      SessionStorage.setPasswordVerified(true);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

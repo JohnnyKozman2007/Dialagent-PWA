@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/user_provider.dart';
 import '../../models/user_model.dart';
 import '../../utils/totp_util.dart';
+import '../../utils/session_storage.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -676,6 +677,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
 
     if (confirm == true) {
+      SessionStorage.clear();
       ref.invalidate(userProvider);
       ref.invalidate(userRoleProvider);
       await Supabase.instance.client.auth.signOut();

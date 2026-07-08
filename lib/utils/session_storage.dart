@@ -18,12 +18,19 @@ class SessionStorage {
     html.window.sessionStorage.clear();
   }
 
-  // ADD THESE:
   static void setTwoFAVerified(bool verified) {
     setItem('2fa_verified', verified ? 'true' : 'false');
   }
 
   static bool isTwoFAVerified() {
     return getItem('2fa_verified') == 'true';
+  }
+
+  static void setPasswordVerified(bool verified) {
+    setItem('password_verified', verified ? 'true' : 'false');
+  }
+
+  static bool isPasswordVerified() {
+    return getItem('password_verified') == 'true';
   }
 }
