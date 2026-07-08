@@ -105,15 +105,17 @@ using (
   or public.get_auth_user_role() = 'Admin'
 );
 
-create policy "Allow users to update their own profile or Admin updates"
+create policy "Allow users to update their own profile or Admin/Owner/Manager updates"
 on public.users for update
 using (
   auth.uid() = uid
   or public.get_auth_user_role() = 'Admin'
+  or (public.get_auth_user_role() in ('Owner', 'Manager') and restaurant_id = public.get_auth_user_restaurant_id())
 )
 with check (
   auth.uid() = uid
   or public.get_auth_user_role() = 'Admin'
+  or (public.get_auth_user_role() in ('Owner', 'Manager') and restaurant_id = public.get_auth_user_restaurant_id())
 );
 
 create policy "Allow inserts during signup"
@@ -278,4 +280,55 @@ on public.timecards for update
 using (
   (uid = auth.uid() or public.get_auth_user_role() in ('Owner', 'Manager'))
   and restaurant_id = public.get_auth_user_restaurant_id()
+);
+
+
+-- Create MENU_CATEGORIES table
+create table public.menu_categories (
+    id uuid primary key default gen_random_uuid(),
+    name text not null,
+    restaurant_id uuid not null,
+    created_at timestamptz default now()
+);
+
+-- Enable RLS on menu_categories
+alter table public.menu_categories enable row level security;
+
+-- Policies for menu_categories
+create policy "Allow read menu_categories if same restaurant"
+on public.menu_categories for select
+using (restaurant_id = public.get_auth_user_restaurant_id());
+
+create policy "Allow write menu_categories if owner or manager"
+on public.menu_categories for all
+using (
+  restaurant_id = public.get_auth_user_restaurant_id()
+  and public.get_auth_user_role() in ('Owner', 'Manager')
+);
+
+-- Create MENU_ITEMS table
+create table public.menu_items (
+    id uuid primary key default gen_random_uuid(),
+    category_id uuid not null references public.menu_categories(id) on delete cascade,
+    name text not null,
+    description text default '',
+    price numeric not null default 0.0,
+    image_url text,
+    restaurant_id uuid not null,
+    created_at timestamptz default now()
+);
+
+-- Enable RLS on menu_items
+alter table public.menu_items enable row level security;
+
+-- Policies for menu_items
+create policy "Allow read menu_items if same restaurant"
+on public.menu_items for select
+using (restaurant_id = public.get_auth_user_restaurant_id());
+
+create policy "Allow write menu_items if owner or manager"
+on public.menu_items for all
+using (
+  restaurant_id = public.get_auth_user_restaurant_id()
+  and public.get_auth_user_role() in ('Owner', 'Manager')
 );

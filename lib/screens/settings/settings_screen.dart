@@ -115,8 +115,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 16),
 
-              // --- Staff Management (Owner Only, Verified) ---
-              if (isOwner) ...[
+              // --- Staff Management (Owner & Manager, Verified) ---
+              if (isManager) ...[
                 _buildSectionHeader('👥 Staff Management'),
                 if (user.isApproved) ...[
                   _buildSettingsTile(

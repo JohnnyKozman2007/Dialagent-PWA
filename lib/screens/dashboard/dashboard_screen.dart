@@ -33,10 +33,10 @@ class AgenticEngine {
             route: null,
           ),
           DashboardCard(
-            title: '⚡ Sales Summary',
-            subtitle: 'This week: \$4,200',
-            icon: Icons.trending_up,
-            route: null,
+            title: '🍽️ Menu Management',
+            subtitle: 'Categories and dishes',
+            icon: Icons.restaurant_menu,
+            route: '/menu',
           ),
           DashboardCard(
             title: '📅 Shift Management',
@@ -82,16 +82,16 @@ class AgenticEngine {
             route: '/tasks',
           ),
           DashboardCard(
-            title: '🍽️ Table Management',
-            subtitle: '12 tables, 3 occupied',
-            icon: Icons.table_restaurant,
-            route: null,
+            title: '🍽️ Menu Management',
+            subtitle: 'Categories and dishes',
+            icon: Icons.restaurant_menu,
+            route: '/menu',
           ),
           DashboardCard(
-            title: '📋 Pending Orders',
-            subtitle: '3 orders waiting',
-            icon: Icons.receipt_long,
-            route: null,
+            title: '👥 Manage Staff',
+            subtitle: 'Add or remove employees',
+            icon: Icons.people,
+            route: '/permissions',
           ),
           DashboardCard(
             title: '🔔 Reservation Alerts',
@@ -120,7 +120,7 @@ class AgenticEngine {
             title: '📖 Today\'s Menu',
             subtitle: 'View dishes and specials',
             icon: Icons.menu_book,
-            route: null,
+            route: '/menu',
           ),
           DashboardCard(
             title: '⏰ My Shifts',

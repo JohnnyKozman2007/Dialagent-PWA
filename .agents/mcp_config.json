@@ -5,7 +5,7 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-postgres",
-        "postgresql://postgres:[YOUR_DB_PASSWORD]@db.gzigshqricfihxiezdmu.supabase.co:5432/postgres"
+        "postgresql://postgres.tjtjxhxesyhjozpetyqw:password1234567890-%2BJ%3F%3F%26%26@aws-0-eu-west-1.pooler.supabase.com:6543/postgres?sslmode=require"
       ]
     }
   }

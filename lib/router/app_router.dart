@@ -17,6 +17,7 @@ import '../screens/admin/invite_screen.dart';
 import '../screens/shifts/shift_screen.dart';
 import '../screens/shifts/my_shifts_screen.dart';
 import '../screens/tasks/task_screen.dart';
+import '../screens/menu/menu_screen.dart';
 import '../models/user_model.dart';
 import '../utils/session_storage.dart';
 import '../screens/backoffice/backoffice_screen.dart';
@@ -178,6 +179,11 @@ final router = GoRouter(
         final user = state.extra as UserModel?;
         return PermissionScreen(user: user);
       },
+    ),
+    GoRoute(
+      path: '/menu',
+      name: 'menu',
+      builder: (context, state) => const MenuScreen(),
     ),
   ],
 );
