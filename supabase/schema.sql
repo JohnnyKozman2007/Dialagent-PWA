@@ -202,6 +202,7 @@ declare
   assigned_role text;
   assigned_restaurant_id uuid;
   assigned_is_approved boolean;
+  assigned_onboarding_completed boolean;
   matched_invite_role text;
   matched_invite_restaurant_id uuid;
 begin
@@ -218,18 +219,21 @@ begin
     assigned_role := 'Admin';
     assigned_restaurant_id := null;
     assigned_is_approved := true;
+    assigned_onboarding_completed := false;
   elsif matched_invite_restaurant_id is not null then
     assigned_role := matched_invite_role;
     assigned_restaurant_id := matched_invite_restaurant_id;
     assigned_is_approved := true; -- Invited staff are auto-approved
+    assigned_onboarding_completed := true; -- Invited staff bypass onboarding
   else
     assigned_role := 'Owner';
     assigned_restaurant_id := new.id; -- Owner's own ID is the initial restaurant ID
     assigned_is_approved := false; -- Owner needs manual approval from backoffice
+    assigned_onboarding_completed := false;
   end if;
 
-  insert into public.users (uid, email, role, restaurant_id, is_approved)
-  values (new.id, new.email, assigned_role, assigned_restaurant_id, assigned_is_approved);
+  insert into public.users (uid, email, role, restaurant_id, is_approved, onboarding_completed)
+  values (new.id, new.email, assigned_role, assigned_restaurant_id, assigned_is_approved, assigned_onboarding_completed);
 
   -- Mark the invite as used if we matched one
   if matched_invite_restaurant_id is not null then
@@ -331,4 +335,27 @@ on public.menu_items for all
 using (
   restaurant_id = public.get_auth_user_restaurant_id()
   and public.get_auth_user_role() in ('Owner', 'Manager')
+);
+
+-- Create menu-images storage bucket
+insert into storage.buckets (id, name, public)
+values ('menu-images', 'menu-images', true)
+on conflict (id) do nothing;
+
+create policy "Allow public read access to menu images"
+on storage.objects for select
+using (bucket_id = 'menu-images');
+
+create policy "Allow authenticated uploads to menu images"
+on storage.objects for insert
+with check (
+  bucket_id = 'menu-images'
+  and auth.role() = 'authenticated'
+);
+
+create policy "Allow owners and managers to delete menu images"
+on storage.objects for delete
+using (
+  bucket_id = 'menu-images'
+  and auth.role() = 'authenticated'
 );

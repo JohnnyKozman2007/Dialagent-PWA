@@ -5,6 +5,7 @@ import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
 import '../screens/auth/recovery_screen.dart';
 import '../screens/auth/pending_approval_screen.dart';
+import '../screens/auth/welcome_screen.dart';
 import '../screens/twofa/twofa_setup_screen.dart';
 import '../screens/twofa/twofa_verify_screen.dart';
 import '../screens/onboarding/onboarding_screen.dart';
@@ -44,7 +45,7 @@ final router = GoRouter(
       return null;
     }
 
-    final flowPaths = ['/twofa', '/onboarding', '/pending-approval', '/verify-2fa'];
+    final flowPaths = ['/twofa', '/onboarding', '/pending-approval', '/verify-2fa', '/welcome'];
     if (flowPaths.contains(state.uri.path)) {
       return null;
     }
@@ -60,10 +61,21 @@ final router = GoRouter(
       final has2FA = data?['two_fa_enabled'] ?? false;
       final hasOnboarding = data?['onboarding_completed'] ?? false;
       final isApproved = data?['is_approved'] ?? false;
+      final role = data?['role'] ?? 'Staff';
 
+      // Enforce 2FA setup or custom welcome screen for invited staff/managers
       if (!has2FA) {
+        if (role == 'Staff' || role == 'Manager') {
+          return '/welcome';
+        }
         return '/twofa';
       }
+
+      // Enforce 2FA verification on every session login
+      if (has2FA && !SessionStorage.isTwoFAVerified()) {
+        return '/verify-2fa';
+      }
+
       if (!hasOnboarding) {
         return '/onboarding';
       }
@@ -97,6 +109,11 @@ final router = GoRouter(
       path: '/signup',
       name: 'signup',
       builder: (context, state) => const SignUpScreen(), // ✅ Correct
+    ),
+    GoRoute(
+      path: '/welcome',
+      name: 'welcome',
+      builder: (context, state) => const WelcomeScreen(),
     ),
     GoRoute(
       path: '/recovery',

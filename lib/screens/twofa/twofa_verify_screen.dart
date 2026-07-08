@@ -7,9 +7,9 @@ import '../../providers/auth_provider.dart';
 import '../../utils/session_storage.dart';
 
 class TwoFAVerifyScreen extends ConsumerStatefulWidget {
-  final String email;
+  final String? email;
 
-  const TwoFAVerifyScreen({super.key, required this.email});
+  const TwoFAVerifyScreen({super.key, this.email});
 
   @override
   ConsumerState<TwoFAVerifyScreen> createState() => _TwoFAVerifyScreenState();
@@ -122,7 +122,7 @@ class _TwoFAVerifyScreenState extends ConsumerState<TwoFAVerifyScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Enter the 6-digit code for ${widget.email}',
+                'Enter the 6-digit code for ${widget.email?.isNotEmpty == true ? widget.email : (Supabase.instance.client.auth.currentUser?.email ?? "")}',
                 style: const TextStyle(fontSize: 14, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
