@@ -102,12 +102,19 @@ on public.users for select
 using (
   auth.uid() = uid 
   or restaurant_id = public.get_auth_user_restaurant_id()
+  or public.get_auth_user_role() = 'Admin'
 );
 
-create policy "Allow users to update their own profile"
+create policy "Allow users to update their own profile or Admin updates"
 on public.users for update
-using (auth.uid() = uid)
-with check (auth.uid() = uid);
+using (
+  auth.uid() = uid
+  or public.get_auth_user_role() = 'Admin'
+)
+with check (
+  auth.uid() = uid
+  or public.get_auth_user_role() = 'Admin'
+);
 
 create policy "Allow inserts during signup"
 on public.users for insert
