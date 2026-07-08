@@ -15,7 +15,6 @@ class ShiftScreen extends ConsumerStatefulWidget {
 }
 
 class _ShiftScreenState extends ConsumerState<ShiftScreen> {
-  bool _isLoading = false;
   List<Map<String, dynamic>> _timecards = [];
   bool _isLoadingTimecards = false;
 
@@ -48,20 +47,21 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
   }
 
   Future<void> _deleteShift(String id) async {
-    setState(() => _isLoading = true);
     try {
       final client = Supabase.instance.client;
       await client.from('shifts').delete().eq('id', id);
-      ref.refresh(shiftsProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Shift deleted successfully!')),
-      );
+      ref.invalidate(shiftsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Shift deleted successfully!')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
   }
 
@@ -70,22 +70,23 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
     final user = client.auth.currentUser;
     if (user == null) return;
 
-    setState(() => _isLoading = true);
     try {
       await client.from('shifts').update({
         'assigned_to': user.id,
         'assigned_to_name': user.email ?? '',
       }).eq('id', id);
-      ref.refresh(shiftsProvider);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Shift claimed successfully!')),
-      );
+      ref.invalidate(shiftsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Shift claimed successfully!')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error claiming shift: $e')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error claiming shift: $e')),
+        );
+      }
     }
   }
 
@@ -181,7 +182,7 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
         }
 
         return RefreshIndicator(
-          onRefresh: () async => ref.refresh(shiftsProvider),
+          onRefresh: () async => ref.invalidate(shiftsProvider),
           child: ListView.builder(
             padding: const EdgeInsets.all(16.0),
             itemCount: shifts.length,
@@ -385,7 +386,7 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
                             decoration: BoxDecoration(
                               color: clockOut != null
                                   ? Colors.grey.shade200
-                                  : Colors.green.withOpacity(0.15),
+                                  : Colors.green.withAlpha(38),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -443,14 +444,18 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
                             setState(() => _isLoadingTimecards = true);
                             try {
                               await ApiService.clockOut(tcId);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Employee successfully clocked out.')),
-                              );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Employee successfully clocked out.')),
+                                );
+                              }
                               await _loadTimecards();
                             } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                              );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                );
+                              }
                             } finally {
                               setState(() => _isLoadingTimecards = false);
                             }
@@ -567,11 +572,15 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
                   'restaurant_id': restaurantId,
                 });
 
-                Navigator.pop(context);
-                ref.refresh(shiftsProvider);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Shift created!')),
-                );
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
+                ref.invalidate(shiftsProvider);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Shift created!')),
+                  );
+                }
               },
               child: const Text('Add'),
             ),
@@ -669,11 +678,15 @@ class _ShiftScreenState extends ConsumerState<ShiftScreen> {
                 })
                     .eq('id', shift.id);
 
-                Navigator.pop(context);
-                ref.refresh(shiftsProvider);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Shift updated!')),
-                );
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
+                ref.invalidate(shiftsProvider);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Shift updated!')),
+                  );
+                }
               },
               child: const Text('Update'),
             ),

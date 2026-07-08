@@ -6,7 +6,7 @@ import '../../providers/user_provider.dart';
 
 class TaskDetailScreen extends ConsumerWidget {
   final Task task;
-  const TaskDetailScreen({Key? key, required this.task}) : super(key: key);
+  const TaskDetailScreen({super.key, required this.task});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,9 +46,11 @@ class TaskDetailScreen extends ConsumerWidget {
         'assigned_to': newAssignedTo,
         'assigned_to_name': newAssignedToName,
       }).eq('id', task.id);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isAssignedToMe ? 'Unclaimed' : 'Claimed')),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isAssignedToMe ? 'Unclaimed' : 'Claimed')),
+        );
+      }
     }
 
     return Scaffold(

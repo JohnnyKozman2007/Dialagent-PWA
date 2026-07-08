@@ -57,9 +57,11 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
       });
     } catch (e) {
       debugPrint('Error loading menu data: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -82,14 +84,18 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
         'restaurant_id': restaurantId,
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Category added!'), backgroundColor: Colors.green),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Category added!'), backgroundColor: Colors.green),
+        );
+      }
       await _loadMenuData();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -103,14 +109,18 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
       if (_selectedCategoryId == id) {
         _selectedCategoryId = null;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Category deleted!')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Category deleted!')),
+        );
+      }
       await _loadMenuData();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -146,21 +156,27 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
 
       if (itemId == null) {
         await client.from('menu_items').insert(itemPayload);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Item added!'), backgroundColor: Colors.green),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Item added!'), backgroundColor: Colors.green),
+          );
+        }
       } else {
         await client.from('menu_items').update(itemPayload).eq('id', itemId);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Item updated!'), backgroundColor: Colors.green),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Item updated!'), backgroundColor: Colors.green),
+          );
+        }
       }
 
       await _loadMenuData();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -171,14 +187,18 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
     try {
       final client = Supabase.instance.client;
       await client.from('menu_items').delete().eq('id', id);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Item deleted!')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Item deleted!')),
+        );
+      }
       await _loadMenuData();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -306,7 +326,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                                 ),
                               ),
                             );
-                          }).toList(),
+                          }),
                         ],
                       ),
                     ),
@@ -412,7 +432,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                                             child: Container(
                                               padding: const EdgeInsets.all(4),
                                               decoration: BoxDecoration(
-                                                color: Colors.black.withOpacity(0.5),
+                                                color: Colors.black.withAlpha(128),
                                                 shape: BoxShape.circle,
                                               ),
                                               child: const Icon(Icons.more_vert, size: 18, color: Colors.white),
@@ -481,8 +501,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
           title: Text(item == null ? 'Add Menu Item' : 'Edit Menu Item'),
           content: SingleChildScrollView(
             child: Column(
@@ -490,7 +510,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
               children: [
                 DropdownButtonFormField<String>(
                   decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
-                  value: selectedCatId,
+                  initialValue: selectedCatId,
                   items: _categories.map((cat) {
                     return DropdownMenuItem(value: cat['id'] as String, child: Text(cat['name']));
                   }).toList(),
@@ -569,16 +589,20 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                                   setDialogState(() {
                                     imgController.text = publicUrl;
                                   });
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Image uploaded successfully!')),
-                                  );
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Image uploaded successfully!')),
+                                    );
+                                  }
                                 } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Upload failed: $e'),
-                                      backgroundColor: Colors.red,
-                                    ),
-                                  );
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Upload failed: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
                                 } finally {
                                   setDialogState(() {
                                     isUploading = false;
@@ -594,7 +618,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
@@ -606,7 +630,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
                   );
                   return;
                 }
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
                 _addOrUpdateItem(
                   itemId: item?['id'],
                   name: nameController.text.trim(),

@@ -43,14 +43,18 @@ class _MyShiftsScreenState extends ConsumerState<MyShiftsScreen> {
     try {
       final shift = _selectedShiftForClockIn;
       await ApiService.clockIn(shift?.id, shift?.startTime);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('🕒 Clocked in successfully!'), backgroundColor: Colors.green),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('🕒 Clocked in successfully!'), backgroundColor: Colors.green),
+        );
+      }
       await _loadTimecard();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error clocking in: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error clocking in: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       setState(() => _isLoadingTimecard = false);
     }
@@ -61,14 +65,18 @@ class _MyShiftsScreenState extends ConsumerState<MyShiftsScreen> {
     setState(() => _isLoadingTimecard = true);
     try {
       await ApiService.clockOut(_currentTimecard!['id']);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('🏁 Clocked out successfully!'), backgroundColor: Colors.orange),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('🏁 Clocked out successfully!'), backgroundColor: Colors.orange),
+        );
+      }
       await _loadTimecard();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error clocking out: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error clocking out: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       setState(() => _isLoadingTimecard = false);
     }
@@ -122,8 +130,8 @@ class _MyShiftsScreenState extends ConsumerState<MyShiftsScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: _currentTimecard != null
-                                    ? Colors.green.withOpacity(0.15)
-                                    : Colors.red.withOpacity(0.15),
+                                    ? Colors.green.withAlpha(38)
+                                    : Colors.red.withAlpha(38),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
@@ -191,7 +199,7 @@ class _MyShiftsScreenState extends ConsumerState<MyShiftsScreen> {
                                   labelText: 'Select Scheduled Shift',
                                   border: OutlineInputBorder(),
                                 ),
-                                value: _selectedShiftForClockIn,
+                                initialValue: _selectedShiftForClockIn,
                                 items: todayMyShifts.map((s) {
                                   return DropdownMenuItem(
                                     value: s,

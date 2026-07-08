@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/user_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/session_storage.dart';
 import 'signup_screen.dart';
 import 'recovery_screen.dart';
-import 'pending_approval_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -143,6 +141,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             .maybeSingle()
             .timeout(const Duration(seconds: 5));
 
+        if (!mounted) return;
+
         if (data == null) {
           context.go('/onboarding');
           return;
@@ -160,15 +160,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         } else if (role == 'Owner' && !isApproved) {
           context.go('/pending-approval');
         } else {
-          context.go('/dashboard');
+          context.go('/verify-2fa', extra: email);
         }
       } catch (e) {
-        context.go('/onboarding');
+        if (mounted) {
+          context.go('/onboarding');
+        }
       }
     } on AuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
 
     setState(() => isLoading = false);
@@ -178,7 +184,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Theme(
       data: ThemeData.light().copyWith(
-        useMaterial3: true,
         colorScheme: const ColorScheme.light(primary: Colors.teal),
       ),
       child: Scaffold(
@@ -204,7 +209,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.teal.withOpacity(0.1),
+                        color: Colors.teal.withAlpha(26),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Text(

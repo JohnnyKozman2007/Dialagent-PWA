@@ -49,7 +49,9 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
                       'assigned_to_name': '',
                       'status': 'pending',
                     });
-                    Navigator.pop(context);
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
                   }
                 },
                 child: const Text('Save'),

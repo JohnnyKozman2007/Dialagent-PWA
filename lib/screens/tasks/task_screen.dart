@@ -9,7 +9,7 @@ import 'task_form_screen.dart';
 import 'task_detail_screen.dart';
 
 class TaskScreen extends ConsumerStatefulWidget {
-  const TaskScreen({Key? key}) : super(key: key);
+  const TaskScreen({super.key});
 
   @override
   ConsumerState<TaskScreen> createState() => _TaskScreenState();
@@ -25,12 +25,14 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
         .update({
       'status': 'completed',
     }).eq('id', task.id);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✅ Task marked as done!'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Task marked as done!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
   @override
@@ -162,9 +164,11 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
               ElevatedButton.icon(
                 onPressed: () async {
                   await Clipboard.setData(ClipboardData(text: link));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Index creation link copied to clipboard')),
-                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Index creation link copied to clipboard')),
+                    );
+                  }
                 },
                 icon: const Icon(Icons.copy),
                 label: const Text('Copy Index Link'),

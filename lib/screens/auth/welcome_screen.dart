@@ -25,7 +25,6 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
   String? _errorMessage;
 
   String? _secretKey;
-  bool _is2FAVerified = false;
 
   @override
   void initState() {
@@ -62,9 +61,11 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       setState(() {
         _isPasswordSaved = true;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password updated successfully!'), backgroundColor: Colors.green),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password updated successfully!'), backgroundColor: Colors.green),
+        );
+      }
     } catch (e) {
       setState(() => _errorMessage = 'Error saving password: $e');
     } finally {
@@ -111,10 +112,6 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
       // Verify the session
       ref.read(twoFAVerifiedProvider.notifier).state = true;
       SessionStorage.setTwoFAVerified(true);
-
-      setState(() {
-        _is2FAVerified = true;
-      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

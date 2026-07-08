@@ -20,7 +20,6 @@ final userProvider = FutureProvider<UserModel?>((ref) async {
     }
     return null;
   } catch (e) {
-    print('Error fetching user: $e');
     return null;
   }
 });

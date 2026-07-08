@@ -3,9 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/user_provider.dart';
-import '../../providers/theme_provider.dart';
 import '../../models/user_model.dart';
-import '../../models/permissions.dart';
 import '../../utils/totp_util.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -21,7 +19,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(userProvider);
-    final themeMode = ref.watch(themeModeProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -40,7 +37,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         data: (UserModel? user) {
           if (user == null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              ref.refresh(userProvider);
+              ref.invalidate(userProvider);
             });
             return const Center(child: CircularProgressIndicator());
           }
@@ -223,7 +220,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withAlpha(51),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -298,7 +295,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   // --- Change Password with 2FA ---
-  void _showChangePasswordDialog(BuildContext context) {
+  void _showChangePasswordDialog(BuildContext outerContext) {
     final currentPasswordController = TextEditingController();
     final newPasswordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
@@ -306,10 +303,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     bool step2 = false;
 
     showDialog(
-      context: context,
+      context: outerContext,
       barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setState) {
           return AlertDialog(
             title: Text(step2 ? '🔐 2FA Verification' : 'Change Password'),
             content: Column(
@@ -377,7 +374,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   newPasswordController.dispose();
                   confirmPasswordController.dispose();
                   twoFAController.dispose();
-                  Navigator.pop(context);
+                  Navigator.pop(dialogContext);
                 },
                 child: const Text('Cancel'),
               ),
@@ -426,14 +423,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         twoFAController.clear();
                       });
                     } on AuthException catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('❌ Current password is incorrect: ${e.message}')),
-                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('❌ Current password is incorrect: ${e.message}')),
+                        );
+                      }
                       setState(() => _isLoading = false);
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: $e')),
-                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e')),
+                        );
+                      }
                       setState(() => _isLoading = false);
                     }
                     return;
@@ -445,9 +446,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     final client = Supabase.instance.client;
                     final user = client.auth.currentUser;
                     if (user == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('User not logged in')),
-                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('User not logged in')),
+                        );
+                      }
                       setState(() => _isLoading = false);
                       return;
                     }
@@ -460,9 +463,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                     final secret = doc?['two_fa_secret'];
                     if (secret == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('2FA not set up. Please contact admin.')),
-                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('2FA not set up. Please contact admin.')),
+                        );
+                      }
                       setState(() => _isLoading = false);
                       return;
                     }
@@ -473,9 +478,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     );
 
                     if (!isValid) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('❌ Invalid 2FA code. Please try again.')),
-                      );
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('❌ Invalid 2FA code. Please try again.')),
+                        );
+                      }
                       setState(() {
                         _isLoading = false;
                         twoFAController.clear();
@@ -485,26 +492,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                     await client.auth.updateUser(UserAttributes(password: newPasswordController.text));
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('✅ Password updated successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('✅ Password updated successfully!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
 
                     currentPasswordController.dispose();
                     newPasswordController.dispose();
                     confirmPasswordController.dispose();
                     twoFAController.dispose();
-                    Navigator.pop(context);
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                    }
                   } on AuthException catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to update password: ${e.message}')),
-                    );
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to update password: ${e.message}')),
+                      );
+                    }
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e')),
-                    );
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                    }
                   }
 
                   setState(() => _isLoading = false);
@@ -533,7 +548,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -557,8 +572,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       .from('users')
                       .update({'cuisine_type': cuisine})
                       .eq('uid', uid);
-                  ref.refresh(userProvider);
-                  Navigator.pop(context);
+                  ref.invalidate(userProvider);
+                  if (sheetContext.mounted) {
+                    Navigator.pop(sheetContext);
+                  }
                 }
               },
             )),
@@ -569,13 +586,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   // --- Table Count Picker ---
-  void _showTableCountPicker(BuildContext context, UserModel user) {
+  void _showTableCountPicker(BuildContext outerContext, UserModel user) {
     int tempCount = user.tableCount ?? 10;
 
     showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+      context: outerContext,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setState) => AlertDialog(
           title: const Text('Number of Tables'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -611,7 +628,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
@@ -623,8 +640,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       .from('users')
                       .update({'table_count': tempCount})
                       .eq('uid', uid);
-                  ref.refresh(userProvider);
-                  Navigator.pop(context);
+                  ref.invalidate(userProvider);
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
                 }
               },
               child: const Text('Save'),
@@ -660,7 +679,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ref.invalidate(userProvider);
       ref.invalidate(userRoleProvider);
       await Supabase.instance.client.auth.signOut();
-      if (context.mounted) {
+      if (mounted) {
         context.go('/login');
       }
     }

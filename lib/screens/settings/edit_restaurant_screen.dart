@@ -41,15 +41,19 @@ class _EditRestaurantScreenState extends ConsumerState<EditRestaurantScreen> {
           'address': addressController.text.trim(),
         }).eq('uid', uid);
         ref.invalidate(userProvider);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Restaurant info updated successfully!')),
-        );
-        context.go('/settings');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Restaurant info updated successfully!')),
+          );
+          context.go('/settings');
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
 
     setState(() => isLoading = false);

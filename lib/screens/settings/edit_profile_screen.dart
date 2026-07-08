@@ -52,15 +52,19 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           'phone': phoneController.text.trim(),
         }).eq('uid', uid);
         ref.invalidate(userProvider);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully!')),
-        );
-        context.go('/settings');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile updated successfully!')),
+          );
+          context.go('/settings');
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
 
     setState(() => isLoading = false);

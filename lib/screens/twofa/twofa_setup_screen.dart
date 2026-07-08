@@ -56,36 +56,48 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
               isVerified = true;
               isSaving = false;
             });
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('✅ 2FA enabled successfully!')),
-            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('✅ 2FA enabled successfully!')),
+              );
+            }
           } on TimeoutException {
             setState(() => isSaving = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('⚠️ Network slow. 2FA enabled but not saved.')),
-            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('⚠️ Network slow. 2FA enabled but not saved.')),
+              );
+            }
             setState(() => isVerified = true);
           } catch (e) {
             setState(() => isSaving = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error saving 2FA: $e')),
-            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error saving 2FA: $e')),
+              );
+            }
             setState(() => isVerified = true);
           }
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('❌ Invalid code. Please try again.')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('❌ Invalid code. Please try again.')),
+          );
+        }
       }
     } on TimeoutException {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⏱️ Verification timed out. Please try again.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('⏱️ Verification timed out. Please try again.')),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
 
     setState(() => isLoading = false);
@@ -123,8 +135,6 @@ class _TwoFASetupScreenState extends State<TwoFASetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final client = Supabase.instance.client;
-    final user = client.auth.currentUser;
 
     final otpUri = TOTPUtil.getQRCodeUrl(
       appName: 'RestaurantApp',

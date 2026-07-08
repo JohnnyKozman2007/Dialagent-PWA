@@ -56,18 +56,22 @@ class _BackofficeScreenState extends State<BackofficeScreen> {
     try {
       await ApiService.verifyRestaurant(uid, action);
       _addLog('Action $action executed on restaurant: $name (UID: $uid)');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Restaurant "$name" status updated to $action.'),
-          backgroundColor: action == 'APPROVE' ? Colors.green : (action == 'REJECT' ? Colors.red : Colors.orange),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Restaurant "$name" status updated to $action.'),
+            backgroundColor: action == 'APPROVE' ? Colors.green : (action == 'REJECT' ? Colors.red : Colors.orange),
+          ),
+        );
+      }
       await _loadAllData();
     } catch (e) {
       _addLog('Failed to verify restaurant $name: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -103,7 +107,7 @@ class _BackofficeScreenState extends State<BackofficeScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withAlpha(76),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(

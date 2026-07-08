@@ -50,25 +50,14 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         context.go('/twofa');
       }
       setState(() => isLoading = false);
-      return;
-
-      // Invite exists -> Staff or Manager
-      await client.auth.signUp(
-        email: email,
-        password: passwordController.text.trim(),
-      );
-
-      // Invalidate providers
-      ref.invalidate(userProvider);
-      ref.invalidate(userRoleProvider);
-
-      if (mounted) {
-        context.go('/twofa');
-      }
     } on AuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
 
     setState(() => isLoading = false);
@@ -78,7 +67,6 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   Widget build(BuildContext context) {
     return Theme(
       data: ThemeData.light().copyWith(
-        useMaterial3: true,
         colorScheme: const ColorScheme.light(primary: Colors.teal),
       ),
       child: Scaffold(
@@ -104,7 +92,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.teal.withOpacity(0.1),
+                        color: Colors.teal.withAlpha(26),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: const Text(

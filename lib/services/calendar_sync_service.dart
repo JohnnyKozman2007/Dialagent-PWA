@@ -14,8 +14,8 @@ class CalendarSyncService {
           'calendarEventId': task.calendarEventId,
         },
       );
-    } catch (e) {
-      print('Error syncing to calendar: $e');
+    } catch (_) {
+      // Fail silently or handle appropriately in production
     }
   }
 
@@ -30,8 +30,8 @@ class CalendarSyncService {
           'calendarEventId': calendarEventId,
         },
       );
-    } catch (e) {
-      print('Error deleting calendar event: $e');
+    } catch (_) {
+      // Fail silently or handle appropriately in production
     }
   }
 }

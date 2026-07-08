@@ -42,19 +42,23 @@ class _InviteScreenState extends State<InviteScreen> {
         throw Exception(errorMsg);
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ Invite email sent to $email as $selectedRole via SMTP!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Invite email sent to $email as $selectedRole via SMTP!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
 
       emailController.clear();
       setState(() => selectedRole = 'Staff');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
 
     setState(() => isLoading = false);

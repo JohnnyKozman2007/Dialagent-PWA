@@ -33,7 +33,6 @@ class TOTPUtil {
 
       return false;
     } catch (e) {
-      print('TOTP Error: $e');
       return false;
     }
   }

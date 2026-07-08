@@ -57,7 +57,6 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading staff: $e');
       setState(() => _isLoading = false);
     }
   }
