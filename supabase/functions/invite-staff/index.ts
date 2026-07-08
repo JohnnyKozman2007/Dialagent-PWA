@@ -86,7 +86,7 @@ serve(async (req) => {
           if (origin.includes('localhost')) {
             origin = 'https://dialagent-pwa-supabase-2.vercel.app';
           }
-          return `${origin}/signup`;
+          return `${origin}/welcome`;
         })(),
         data: {
           role: role,
