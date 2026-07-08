@@ -36,19 +36,31 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
 
       final currentProfile = await client
           .from('users')
-          .select('restaurant_id')
+          .select('restaurant_id, role')
           .eq('uid', currentUser.id)
           .maybeSingle();
       final restaurantId = currentProfile?['restaurant_id'];
+      final currentRole = currentProfile?['role'] ?? 'Staff';
 
-      final snapshot = await client
+      // Managers can only manage Staff — not other Managers or Owners.
+      // Owners can manage both Staff and Managers.
+      var query = client
           .from('users')
           .select()
-          .neq('role', 'Owner')
           .eq('restaurant_id', restaurantId);
 
+      List<dynamic> snapshot;
+      if (currentRole == 'Manager') {
+        snapshot = await query.eq('role', 'Staff');
+      } else {
+        // Owner sees everyone except Owners and Admins
+        snapshot = await query
+            .neq('role', 'Owner')
+            .neq('role', 'Admin');
+      }
+
       setState(() {
-        _staffMembers = (snapshot as List)
+        _staffMembers = snapshot
             .map((map) => UserModel.fromSupabase(map))
             .toList();
         if (_staffMembers.isNotEmpty) {
@@ -153,7 +165,31 @@ class _PermissionScreenState extends ConsumerState<PermissionScreen> {
                                     items: _staffMembers.map((user) {
                                       return DropdownMenuItem(
                                         value: user.uid,
-                                        child: Text(user.email),
+                                        child: Row(
+                                          children: [
+                                            Expanded(child: Text(user.email, overflow: TextOverflow.ellipsis)),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: user.role == 'Manager'
+                                                    ? Colors.blue.shade100
+                                                    : Colors.green.shade100,
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                user.role,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: user.role == 'Manager'
+                                                      ? Colors.blue.shade800
+                                                      : Colors.green.shade800,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       );
                                     }).toList(),
                                     onChanged: (value) {

@@ -17,6 +17,7 @@ class TaskScreen extends ConsumerStatefulWidget {
 
 class _TaskScreenState extends ConsumerState<TaskScreen> {
   String _filterStatus = 'all';
+  // Assignee filter only applies to Owner/Manager — Staff always see only their tasks
   String _filterAssignee = 'all';
 
   Future<void> _markTaskDone(Task task) async {
@@ -40,11 +41,14 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
     final tasksAsync = ref.watch(tasksStreamProvider);
     final userAsync = ref.watch(userProvider);
     final currentUser = userAsync.value;
+    final role = currentUser?.role ?? 'Staff';
+    final isManagerOrOwner = role == 'Owner' || role == 'Manager';
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tasks'),
         actions: [
+          // Status filter — visible to everyone
           PopupMenuButton<String>(
             onSelected: (value) => setState(() => _filterStatus = value),
             itemBuilder: (context) => [
@@ -54,15 +58,17 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
               const PopupMenuItem(value: 'completed', child: Text('Completed')),
             ],
           ),
-          IconButton(
-            icon: const Icon(Icons.filter_alt),
-            onPressed: () {
-              setState(() {
-                _filterAssignee = _filterAssignee == 'all' ? 'mine' : 'all';
-              });
-            },
-            tooltip: _filterAssignee == 'all' ? 'Show only mine' : 'Show all',
-          ),
+          // Assignee filter — only meaningful for Owner/Manager
+          if (isManagerOrOwner)
+            IconButton(
+              icon: const Icon(Icons.filter_alt),
+              onPressed: () {
+                setState(() {
+                  _filterAssignee = _filterAssignee == 'all' ? 'mine' : 'all';
+                });
+              },
+              tooltip: _filterAssignee == 'all' ? 'Show only mine' : 'Show all',
+            ),
         ],
       ),
       body: tasksAsync.when(
@@ -76,12 +82,32 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
         data: (tasks) {
           List<Task> filtered = tasks.where((task) {
             if (_filterStatus != 'all' && task.status != _filterStatus) return false;
-            if (_filterAssignee == 'mine' && task.assignedTo != currentUser?.uid) return false;
+            // Assignee filter only applies to Manager/Owner — Staff always see only their tasks
+            if (isManagerOrOwner &&
+                _filterAssignee == 'mine' &&
+                task.assignedTo != currentUser?.uid) {
+              return false;
+            }
             return true;
           }).toList();
 
           if (filtered.isEmpty) {
-            return const Center(child: Text('No tasks found'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.task_alt, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(
+                    isManagerOrOwner
+                        ? 'No tasks found. Tap + to create one.'
+                        : 'No tasks assigned to you yet.',
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            );
           }
 
           return ListView.builder(
@@ -120,7 +146,7 @@ class _TaskScreenState extends ConsumerState<TaskScreen> {
           );
         },
       ),
-      floatingActionButton: (currentUser?.role == 'Owner' || currentUser?.role == 'Manager')
+      floatingActionButton: isManagerOrOwner
           ? FloatingActionButton(
               onPressed: () {
                 Navigator.push(

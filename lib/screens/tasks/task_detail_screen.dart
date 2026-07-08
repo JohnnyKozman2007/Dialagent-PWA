@@ -12,22 +12,22 @@ class TaskDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userProvider);
     final currentUser = userAsync.value;
-    final isAssignedToMe = task.assignedTo == currentUser?.uid;
-    final isOwnerOrManager = currentUser?.role == 'Owner' || currentUser?.role == 'Manager';
+    final isOwnerOrManager =
+        currentUser?.role == 'Owner' || currentUser?.role == 'Manager';
 
     Future<void> deleteTask() async {
       final confirm = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (dialogContext) => AlertDialog(
           title: const Text('Delete Task'),
           content: const Text('Are you sure you want to delete this task?'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () => Navigator.pop(context, true),
+              onPressed: () => Navigator.pop(dialogContext, true),
               child: const Text('Delete'),
             ),
           ],
@@ -39,18 +39,12 @@ class TaskDetailScreen extends ConsumerWidget {
       }
     }
 
-    Future<void> toggleClaim() async {
-      final newAssignedTo = isAssignedToMe ? null : currentUser?.uid;
-      final newAssignedToName = isAssignedToMe ? '' : currentUser?.email ?? '';
-      await Supabase.instance.client.from('tasks').update({
-        'assigned_to': newAssignedTo,
-        'assigned_to_name': newAssignedToName,
-      }).eq('id', task.id);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(isAssignedToMe ? 'Unclaimed' : 'Claimed')),
-        );
-      }
+    // Format due date nicely
+    String? dueDateLabel;
+    if (task.dueDate != null) {
+      final d = task.dueDate!;
+      dueDateLabel =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
     }
 
     return Scaffold(
@@ -78,21 +72,50 @@ class TaskDetailScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Description: ${task.description}'),
-            const SizedBox(height: 8),
-            Text('Status: ${task.status}'),
-            const SizedBox(height: 8),
-            Text('Assigned to: ${task.assignedToName ?? 'Unassigned'}'),
-            if (task.dueDate != null) Text('Due: ${task.dueDate}'),
-            const Spacer(),
-            if (!isOwnerOrManager && task.status != 'completed')
-              Center(
-                child: ElevatedButton.icon(
-                  onPressed: toggleClaim,
-                  icon: Icon(isAssignedToMe ? Icons.person_remove : Icons.person_add),
-                  label: Text(isAssignedToMe ? 'Unclaim' : 'Claim'),
+            // Status chip
+            Row(
+              children: [
+                Chip(
+                  label: Text(
+                    task.status.toUpperCase(),
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: task.status == 'completed'
+                      ? Colors.green
+                      : task.status == 'in-progress'
+                          ? Colors.orange
+                          : Colors.blueGrey,
                 ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (task.description.isNotEmpty) ...[
+              const Text(
+                'Description',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
               ),
+              const SizedBox(height: 4),
+              Text(task.description),
+              const SizedBox(height: 16),
+            ],
+            const Text(
+              'Assigned to',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            const SizedBox(height: 4),
+            Text(task.assignedToName ?? 'Unassigned'),
+            if (dueDateLabel != null) ...[
+              const SizedBox(height: 16),
+              const Text(
+                'Due Date',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const SizedBox(height: 4),
+              Text(dueDateLabel),
+            ],
+            // Staff: no claim/unclaim — tasks are assigned by Manager/Owner
+            // Owner/Manager: edit/delete handled via AppBar actions above
           ],
         ),
       ),
