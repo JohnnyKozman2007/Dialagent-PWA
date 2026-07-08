@@ -48,16 +48,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       return;
     }
 
-    if (selectedRole == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select your role'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
     if (selectedCuisine == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -82,7 +72,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         'restaurant_name': restaurantNameController.text.trim(),
         'phone': phoneController.text.trim(),
         'address': addressController.text.trim(),
-        'role': selectedRole!,
+        'role': 'Owner',
         'cuisine_type': selectedCuisine!,
         'table_count': tableCount,
         'onboarding_completed': true,
@@ -227,65 +217,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   }
                   return null;
                 },
-              ),
-              const SizedBox(height: 20),
-
-              // Role
-              const Text(
-                'Your Role *',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: selectedRole == null ? Colors.red : Colors.grey.shade400,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButtonFormField<String>(
-                    value: selectedRole,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16),
-                    ),
-                    hint: const Text('Select your role'),
-                    items: roles.map((String role) {
-                      return DropdownMenuItem(
-                        value: role,
-                        child: Row(
-                          children: [
-                            Icon(
-                              role == 'Owner'
-                                  ? Icons.admin_panel_settings
-                                  : role == 'Manager'
-                                      ? Icons.people
-                                      : Icons.person,
-                              color: Colors.green,
-                            ),
-                            const SizedBox(width: 12),
-                            Text(role),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (value) => setState(() => selectedRole = value),
-                    validator: (value) {
-                      if (value == null) {
-                        return 'Please select your role';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '• Owner: Full access to everything\n'
-                '• Manager: Manage staff and schedules\n'
-                '• Staff: View menus and tables',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
               const SizedBox(height: 20),
 

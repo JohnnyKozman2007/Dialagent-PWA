@@ -168,4 +168,80 @@ class ApiService {
       }
     }
   }
+
+  // Get active timecard for the current user
+  static Future<Map<String, dynamic>?> getCurrentTimecard() async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) return null;
+    final data = await client
+        .from('timecards')
+        .select()
+        .eq('uid', user.id)
+        .filter('clock_out_time', 'is', null)
+        .maybeSingle();
+    return data;
+  }
+
+  // Clock In
+  static Future<void> clockIn(String? shiftId, DateTime? shiftStartTime) async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) throw Exception('User not logged in');
+
+    // Get current user profile details (restaurant_id, email)
+    final profile = await client.from('users').select('restaurant_id, email').eq('uid', user.id).single();
+    final restaurantId = profile['restaurant_id'];
+    final email = profile['email'];
+
+    if (restaurantId == null) throw Exception('User has no restaurant associated');
+
+    final now = DateTime.now();
+    int minutesLate = 0;
+    if (shiftStartTime != null && now.isAfter(shiftStartTime)) {
+      minutesLate = now.difference(shiftStartTime).inMinutes;
+    }
+
+    await client.from('timecards').insert({
+      'uid': user.id,
+      'email': email,
+      'restaurant_id': restaurantId,
+      'shift_id': shiftId,
+      'clock_in_time': now.toIso8601String(),
+      'shift_start_time': shiftStartTime?.toIso8601String(),
+      'minutes_late': minutesLate,
+    });
+  }
+
+  // Clock Out
+  static Future<void> clockOut(String timecardId) async {
+    final client = Supabase.instance.client;
+    final data = await client.from('timecards').select('clock_in_time').eq('id', timecardId).single();
+    final clockInTime = DateTime.parse(data['clock_in_time']);
+    final now = DateTime.now();
+    final hoursWorked = now.difference(clockInTime).inMinutes / 60.0;
+
+    await client.from('timecards').update({
+      'clock_out_time': now.toIso8601String(),
+      'hours_worked': double.parse(hoursWorked.toStringAsFixed(2)),
+    }).eq('id', timecardId);
+  }
+
+  // Fetch all timecards for the restaurant
+  static Future<List<Map<String, dynamic>>> getTimecards() async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) return [];
+
+    final profile = await client.from('users').select('restaurant_id').eq('uid', user.id).single();
+    final restaurantId = profile['restaurant_id'];
+    if (restaurantId == null) return [];
+
+    final data = await client
+        .from('timecards')
+        .select()
+        .eq('restaurant_id', restaurantId)
+        .order('clock_in_time', ascending: false);
+    return List<Map<String, dynamic>>.from(data);
+  }
 }

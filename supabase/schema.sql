@@ -234,3 +234,41 @@ $$ language plpgsql;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+
+-- Create TIMECARDS table for clocking in/out
+create table public.timecards (
+    id uuid primary key default gen_random_uuid(),
+    uid uuid not null references public.users(uid) on delete cascade,
+    email text not null,
+    restaurant_id uuid not null,
+    shift_id uuid references public.shifts(id) on delete set null,
+    clock_in_time timestamptz not null default now(),
+    clock_out_time timestamptz,
+    shift_start_time timestamptz,
+    minutes_late integer default 0,
+    hours_worked double precision default 0.0,
+    created_at timestamptz default now()
+);
+
+-- Enable RLS on timecards
+alter table public.timecards enable row level security;
+
+-- RLS Policies for timecards
+create policy "Allow read timecards if same restaurant"
+on public.timecards for select
+using (restaurant_id = public.get_auth_user_restaurant_id());
+
+create policy "Allow insert own timecards"
+on public.timecards for insert
+with check (
+  uid = auth.uid()
+  and restaurant_id = public.get_auth_user_restaurant_id()
+);
+
+create policy "Allow update own timecards"
+on public.timecards for update
+using (
+  (uid = auth.uid() or public.get_auth_user_role() in ('Owner', 'Manager'))
+  and restaurant_id = public.get_auth_user_restaurant_id()
+);
