@@ -37,47 +37,20 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       final email = emailController.text.trim().toLowerCase();
       final client = Supabase.instance.client;
 
-      // 🔍 Check for an invite
-      final inviteQuery = await client
-          .from('invites')
-          .select()
-          .eq('email', email)
-          .eq('used', false);
+      // Simply register the user. The database trigger handle_new_user will auto-assign 'Owner', 'Admin', or invite roles.
+      await client.auth.signUp(
+        email: email,
+        password: passwordController.text.trim(),
+      );
 
-      // If NO invite, check if it's the first user (Owner)
-      if (inviteQuery.isEmpty) {
-        final usersSnapshot = await client
-            .from('users')
-            .select('uid')
-            .limit(1);
+      ref.invalidate(userProvider);
+      ref.invalidate(userRoleProvider);
 
-        if (usersSnapshot.isEmpty) {
-          // First user ever -> Owner (handled by handle_new_user trigger)
-          await client.auth.signUp(
-            email: email,
-            password: passwordController.text.trim(),
-          );
-
-          ref.invalidate(userProvider);
-          ref.invalidate(userRoleProvider);
-
-          if (mounted) {
-            context.go('/twofa');
-          }
-          setState(() => isLoading = false);
-          return;
-        } else {
-          // Users exist but no invite
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('You are not authorized to create an account. Please contact the restaurant owner.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          setState(() => isLoading = false);
-          return;
-        }
+      if (mounted) {
+        context.go('/twofa');
       }
+      setState(() => isLoading = false);
+      return;
 
       // Invite exists -> Staff or Manager
       await client.auth.signUp(

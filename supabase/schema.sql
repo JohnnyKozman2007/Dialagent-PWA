@@ -204,18 +204,18 @@ begin
   where email = new.email and used = false
   limit 1;
 
-  if is_first_user then
-    assigned_role := 'Owner';
-    assigned_restaurant_id := new.id; -- Owner's own ID is the initial restaurant ID
-    assigned_is_approved := false; -- Owner needs manual approval or onboarding
+  if new.email = 'kozmanjohnny82@gmail.com' then
+    assigned_role := 'Admin';
+    assigned_restaurant_id := null;
+    assigned_is_approved := true;
   elsif matched_invite_restaurant_id is not null then
     assigned_role := matched_invite_role;
     assigned_restaurant_id := matched_invite_restaurant_id;
     assigned_is_approved := true; -- Invited staff are auto-approved
   else
-    assigned_role := 'Staff';
-    assigned_restaurant_id := null;
-    assigned_is_approved := false;
+    assigned_role := 'Owner';
+    assigned_restaurant_id := new.id; -- Owner's own ID is the initial restaurant ID
+    assigned_is_approved := false; -- Owner needs manual approval from backoffice
   end if;
 
   insert into public.users (uid, email, role, restaurant_id, is_approved)
